@@ -85,6 +85,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Aguiar Nutrição Animal" },
+      { name: "twitter:description", content: "Calculadora de ração, gestão de plantel e consultor IA para avicultura e suinocultura." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/13461465-9796-4605-9a09-e6044f2033d9/id-preview-2605200d--3261ce6a-7576-4b8e-8fc4-8e0aab386087.lovable.app-1785029845661.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/13461465-9796-4605-9a09-e6044f2033d9/id-preview-2605200d--3261ce6a-7576-4b8e-8fc4-8e0aab386087.lovable.app-1785029845661.png" },
     ],
     links: [
       {
