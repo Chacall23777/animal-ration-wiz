@@ -1,0 +1,29 @@
+<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Suíno da raça Piau">
+  <ellipse cx="160" cy="230" rx="120" ry="14" fill="#2B2420" opacity="0.12"/>
+  <!-- body -->
+  <path d="M40 150 C 30 110, 70 78, 130 76 C 200 74, 262 96, 278 138 C 288 164, 270 186, 236 192
+           L 236 208 L 216 208 L 216 192 L 120 192 L 120 208 L 100 208 L 100 190
+           C 62 182, 46 172, 40 150 Z" fill="#F1EEE1" stroke="#2B2420" stroke-width="3.5"/>
+  <!-- Piau spots -->
+  <ellipse cx="90" cy="120" rx="22" ry="17" fill="#2B2420"/>
+  <ellipse cx="150" cy="102" rx="26" ry="20" fill="#2B2420"/>
+  <ellipse cx="210" cy="130" rx="30" ry="22" fill="#2B2420"/>
+  <ellipse cx="250" cy="160" rx="18" ry="24" fill="#2B2420"/>
+  <ellipse cx="120" cy="160" rx="16" ry="12" fill="#2B2420"/>
+  <!-- ear -->
+  <path d="M46 108 C 34 96, 34 78, 48 70 C 46 86, 50 98, 60 108 Z" fill="#F1EEE1" stroke="#2B2420" stroke-width="3"/>
+  <!-- snout -->
+  <ellipse cx="30" cy="140" rx="20" ry="16" fill="#F1EEE1" stroke="#2B2420" stroke-width="3"/>
+  <ellipse cx="18" cy="140" rx="9" ry="11" fill="#E8C9A3" stroke="#2B2420" stroke-width="2"/>
+  <circle cx="14" cy="137" r="1.8" fill="#2B2420"/>
+  <circle cx="14" cy="144" r="1.8" fill="#2B2420"/>
+  <!-- eye -->
+  <circle cx="58" cy="112" r="3.4" fill="#2B2420"/>
+  <!-- tail -->
+  <path d="M280 140 C 296 132, 300 118, 292 108 C 296 122, 288 130, 278 132" fill="none" stroke="#2B2420" stroke-width="4" stroke-linecap="round"/>
+  <!-- legs -->
+  <path d="M100 208 L 100 226" stroke="#2B2420" stroke-width="8" stroke-linecap="round"/>
+  <path d="M120 208 L 120 226" stroke="#2B2420" stroke-width="8" stroke-linecap="round"/>
+  <path d="M216 208 L 216 226" stroke="#2B2420" stroke-width="8" stroke-linecap="round"/>
+  <path d="M236 208 L 236 226" stroke="#2B2420" stroke-width="8" stroke-linecap="round"/>
+</svg>
