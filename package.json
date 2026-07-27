@@ -89,3 +89,4 @@
     "vite": "^8.0.16"
   }
 }
+"@supabase/supabase-js":"^2.45.0"
