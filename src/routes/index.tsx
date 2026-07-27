@@ -568,6 +568,29 @@ function ContaPanel({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [subscribers, setSubscribers] = useState<Record<string, Date>>({});
+  // Persist subscribers so the /checkout/return page can extend access after Stripe redirects back.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem("aguiar_subscribers");
+      if (raw) {
+        const parsed: Record<string, string> = JSON.parse(raw);
+        const map: Record<string, Date> = {};
+        for (const [k, v] of Object.entries(parsed)) map[k] = new Date(v);
+        setSubscribers(map);
+      }
+    } catch {}
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(subscribers)) out[k] = v.toISOString();
+    localStorage.setItem("aguiar_subscribers", JSON.stringify(out));
+    // If the current account's validity was extended (e.g. by /checkout/return), sync it.
+    if (account && subscribers[account.email] && subscribers[account.email].getTime() !== account.validUntil.getTime()) {
+      setAccount({ ...account, validUntil: subscribers[account.email] });
+    }
+  }, [subscribers]);
   const [grantEmail, setGrantEmail] = useState("");
   const [grantDays, setGrantDays] = useState(30);
 
@@ -577,13 +600,6 @@ function ContaPanel({
     const validUntil = subscribers[email] ?? addDays(isAdmin ? 3650 : 7);
     setSubscribers({ ...subscribers, [email]: validUntil });
     setAccount({ email, isAdmin, validUntil });
-  }
-
-  function simulatePayment() {
-    if (!account) return;
-    const nova = addDays(30);
-    setSubscribers({ ...subscribers, [account.email]: nova });
-    setAccount({ ...account, validUntil: nova });
   }
 
   function adminGrant() {
@@ -624,9 +640,23 @@ function ContaPanel({
         <div className="status-row"><span>Status</span><b style={{ color: ativo ? "var(--good)" : "var(--bad)" }}>{ativo ? "Ativa" : "Expirada"}</b></div>
         <div className="status-row"><span>Válida até</span><b>{fmtDate(account.validUntil)}</b></div>
         <div className="plan-card">
-          <div className="plan-price">R$ 50 <span>/ mês</span></div>
-          <p style={{ margin: "6px 0 12px" }}>Acesso completo à calculadora, plantel e consultor IA.</p>
-          <button className="btn" onClick={simulatePayment}>Simular pagamento e renovar</button>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div style={{ padding: 12, border: "1px solid var(--line, #ddd)", borderRadius: 8 }}>
+              <div className="plan-price">R$ 50 <span>/ mês</span></div>
+              <p style={{ margin: "6px 0 12px", fontSize: 13 }}>Cobrança mensal, cancele quando quiser.</p>
+              <Link to="/checkout" search={{ plan: "aguiar_mensal", email: account.email }} className="btn" style={{ display: "inline-block", textDecoration: "none" }}>
+                Assinar mensal
+              </Link>
+            </div>
+            <div style={{ padding: 12, border: "2px solid var(--green, #2e5b3a)", borderRadius: 8, position: "relative" }}>
+              <span style={{ position: "absolute", top: -10, right: 10, background: "var(--green, #2e5b3a)", color: "white", fontSize: 11, padding: "2px 8px", borderRadius: 4 }}>-17%</span>
+              <div className="plan-price">R$ 500 <span>/ ano</span></div>
+              <p style={{ margin: "6px 0 12px", fontSize: 13 }}>Equivale a 2 meses grátis.</p>
+              <Link to="/checkout" search={{ plan: "aguiar_anual", email: account.email }} className="btn" style={{ display: "inline-block", textDecoration: "none" }}>
+                Assinar anual
+              </Link>
+            </div>
+          </div>
         </div>
         <div style={{ marginTop: 14 }}>
           <button className="btn ghost" onClick={() => setAccount(null)}>Sair</button>
