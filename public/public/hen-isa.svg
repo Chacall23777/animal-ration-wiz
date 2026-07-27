@@ -1,0 +1,34 @@
+<svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Galinha poedeira">
+  <defs>
+    <linearGradient id="henBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#C97B3D"/>
+      <stop offset="100%" stop-color="#8C4A3D"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="150" cy="256" rx="90" ry="14" fill="#2B2420" opacity="0.12"/>
+  <!-- tail feathers -->
+  <path d="M210 130 C 250 110, 262 70, 250 40 C 244 76, 226 100, 200 118 Z" fill="#6B342A"/>
+  <path d="M204 140 C 246 128, 262 96, 258 66 C 246 96, 222 116, 196 128 Z" fill="#8C4A3D"/>
+  <!-- body -->
+  <path d="M70 190 C 62 140, 92 96, 150 92 C 208 96, 236 138, 222 190 C 214 224, 184 246, 150 246
+           C 116 246, 78 224, 70 190 Z" fill="url(#henBody)" stroke="#2B2420" stroke-width="3"/>
+  <!-- wing -->
+  <path d="M96 150 C 90 178, 100 206, 128 220 C 112 198, 108 172, 118 148 Z" fill="#6B342A" opacity="0.7"/>
+  <!-- neck + head -->
+  <path d="M140 100 C 132 76, 140 50, 164 40 C 156 56, 154 74, 160 96 Z" fill="url(#henBody)" stroke="#2B2420" stroke-width="3"/>
+  <circle cx="176" cy="44" r="26" fill="#E3A15C" stroke="#2B2420" stroke-width="3"/>
+  <!-- comb -->
+  <path d="M162 24 C 160 12, 168 4, 174 12 C 176 4, 184 4, 184 14 C 190 8, 196 14, 190 22
+           C 196 24, 194 34, 186 32 L 164 32 Z" fill="#B33A2E" stroke="#2B2420" stroke-width="2"/>
+  <!-- wattle -->
+  <path d="M168 58 C 164 66, 166 74, 174 76" fill="none" stroke="#B33A2E" stroke-width="5" stroke-linecap="round"/>
+  <!-- beak -->
+  <path d="M198 44 L 214 40 L 198 52 Z" fill="#D9A441" stroke="#2B2420" stroke-width="2" stroke-linejoin="round"/>
+  <!-- eye -->
+  <circle cx="184" cy="38" r="3.4" fill="#2B2420"/>
+  <!-- legs -->
+  <path d="M132 244 L 128 268 M 128 268 L 118 274 M 128 268 L 128 276 M 128 268 L 138 274"
+        stroke="#D9A441" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <path d="M168 244 L 172 268 M 172 268 L 162 274 M 172 268 L 172 276 M 172 268 L 182 274"
+        stroke="#D9A441" stroke-width="4" stroke-linecap="round" fill="none"/>
+</svg>
