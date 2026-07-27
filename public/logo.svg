@@ -1,0 +1,80 @@
+<svg width="220" height="220" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Aguiar Nutrição Animal">
+  <defs>
+    <circle id="ringPath" cx="110" cy="110" r="92" />
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FBF3E1"/>
+      <stop offset="100%" stop-color="#F1EEE1"/>
+    </linearGradient>
+    <linearGradient id="wheatGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#D9A441"/>
+      <stop offset="100%" stop-color="#B27F27"/>
+    </linearGradient>
+  </defs>
+
+  <!-- outer rings -->
+  <circle cx="110" cy="110" r="106" fill="#2B2420"/>
+  <circle cx="110" cy="110" r="100" fill="url(#bgGrad)"/>
+  <circle cx="110" cy="110" r="100" fill="none" stroke="#2B2420" stroke-width="2.5"/>
+  <circle cx="110" cy="110" r="88" fill="none" stroke="#B27F27" stroke-width="1.5"/>
+
+  <!-- arched brand text -->
+  <text font-family="'Bebas Neue', sans-serif" font-size="19" letter-spacing="3.5" fill="#2B2420">
+    <textPath href="#ringPath" startOffset="50%" text-anchor="middle">AGUIAR · NUTRIÇÃO ANIMAL ·</textPath>
+  </text>
+
+  <!-- ground line -->
+  <path d="M 46 150 Q 110 168 174 150" fill="none" stroke="#8C4A3D" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
+
+  <!-- wheat sprigs left & right -->
+  <g stroke="url(#wheatGrad)" stroke-width="2.4" fill="url(#wheatGrad)" stroke-linecap="round">
+    <path d="M52 150 C 50 132, 56 118, 62 104" fill="none"/>
+    <ellipse cx="52" cy="132" rx="4.2" ry="7" transform="rotate(-25 52 132)"/>
+    <ellipse cx="55" cy="120" rx="4.2" ry="7" transform="rotate(-15 55 120)"/>
+    <ellipse cx="59" cy="108" rx="4.2" ry="7" transform="rotate(-5 59 108)"/>
+    <ellipse cx="47" cy="140" rx="4" ry="6.6" transform="rotate(-38 47 140)"/>
+
+    <path d="M168 150 C 170 132, 164 118, 158 104" fill="none"/>
+    <ellipse cx="168" cy="132" rx="4.2" ry="7" transform="rotate(25 168 132)"/>
+    <ellipse cx="165" cy="120" rx="4.2" ry="7" transform="rotate(15 165 120)"/>
+    <ellipse cx="161" cy="108" rx="4.2" ry="7" transform="rotate(5 161 108)"/>
+    <ellipse cx="173" cy="140" rx="4" ry="6.6" transform="rotate(38 173 140)"/>
+  </g>
+
+  <!-- PIG (left), stylized silhouette, Piau-spotted -->
+  <g transform="translate(46,118)">
+    <path d="M0 22 C -3 10, 6 -2, 20 -3 C 24 -10, 33 -11, 37 -6 C 40 -8, 45 -6, 44 -1
+             C 50 0, 53 6, 50 11 L 50 22 C 50 27, 46 30, 41 30 L 39 30 L 39 25 L 35 25 L 35 30
+             L 12 30 L 12 25 L 8 25 L 8 30 L 4 30 C 1 30, 0 27, 0 22 Z"
+          fill="#F1EEE1" stroke="#2B2420" stroke-width="2"/>
+    <ellipse cx="46" cy="7" rx="4.5" ry="3.4" fill="#F1EEE1" stroke="#2B2420" stroke-width="1.6"/>
+    <circle cx="45.2" cy="6.6" r="0.9" fill="#2B2420"/>
+    <circle cx="14" cy="6" r="1.6" fill="#2B2420"/>
+    <path d="M24 -3 C 22 -8, 16 -9, 13 -6" fill="none" stroke="#2B2420" stroke-width="1.6"/>
+    <ellipse cx="23" cy="15" rx="2.6" ry="3.6" fill="#8C4A3D" opacity="0.85"/>
+    <ellipse cx="31" cy="20" rx="3.6" ry="2.6" fill="#8C4A3D" opacity="0.85"/>
+    <ellipse cx="12" cy="18" rx="2.2" ry="2.8" fill="#8C4A3D" opacity="0.85"/>
+    <path d="M0 16 C -5 15, -6 9, -2 6" fill="none" stroke="#2B2420" stroke-width="2" stroke-linecap="round"/>
+  </g>
+
+  <!-- HEN (right), stylized, comb + wattle -->
+  <g transform="translate(112,92)">
+    <path d="M46 30 C 50 24, 49 15, 42 12 C 44 6, 40 0, 33 1 C 30 -4, 22 -4, 19 1
+             C 10 0, 3 6, 5 14 C -2 16, -4 24, 2 29 C -1 33, 1 39, 7 40
+             L 40 40 C 46 40, 49 34, 46 30 Z"
+          fill="#F1EEE1" stroke="#2B2420" stroke-width="2"/>
+    <path d="M20 1 C 19 -5, 23 -9, 21 -13 C 25 -11, 26 -6, 24 -2" fill="#8C4A3D" stroke="#2B2420" stroke-width="1.3"/>
+    <path d="M27 -1 C 27 -7, 31 -10, 29 -14 C 33 -12, 34 -7, 31 -3" fill="#8C4A3D" stroke="#2B2420" stroke-width="1.3"/>
+    <path d="M34 1 C 35 -5, 39 -7, 38 -11 C 41 -9, 41 -4, 38 -1" fill="#8C4A3D" stroke="#2B2420" stroke-width="1.3"/>
+    <path d="M6 15 L -3 17 L 6 20 Z" fill="#D9A441" stroke="#2B2420" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M8 24 C 5 27, 5 31, 9 33" fill="#8C4A3D" stroke="#2B2420" stroke-width="1.2"/>
+    <circle cx="7" cy="12" r="1.7" fill="#2B2420"/>
+    <path d="M18 38 L 15 46 L 20 46 Z" fill="#D9A441" stroke="#2B2420" stroke-width="1.2"/>
+    <path d="M30 38 L 27 46 L 32 46 Z" fill="#D9A441" stroke="#2B2420" stroke-width="1.2"/>
+  </g>
+
+  <!-- egg + small grain accents -->
+  <ellipse cx="98" cy="150" rx="6.2" ry="8" fill="#FFFFFF" stroke="#2B2420" stroke-width="1.6"/>
+  <circle cx="132" cy="152" r="3" fill="#D9A441"/>
+  <circle cx="139" cy="155" r="2.4" fill="#D9A441"/>
+  <circle cx="126" cy="156" r="2.2" fill="#D9A441"/>
+</svg>
