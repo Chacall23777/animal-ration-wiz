@@ -60,7 +60,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           >
             Try again
           </button>
-          <a
+          
             href="/"
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
@@ -76,19 +76,44 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: "Aguiar Nutrição Animal" },
-      { name: "description", content: "Calculadora de ração, gestão de plantel e consultor IA para avicultura e suinocultura." },
+      { name: "theme-color", content: "#2B2420" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "apple-mobile-web-app-title", content: "Aguiar" },
+      {
+        name: "description",
+        content:
+          "Calculadora de ração, gestão de plantel e consultor IA para avicultura e suinocultura.",
+      },
       { name: "author", content: "Aguiar Nutrição Animal" },
       { property: "og:title", content: "Aguiar Nutrição Animal" },
-      { property: "og:description", content: "Calculadora de ração, gestão de plantel e consultor IA para avicultura e suinocultura." },
+      {
+        property: "og:description",
+        content:
+          "Calculadora de ração, gestão de plantel e consultor IA para avicultura e suinocultura.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
       { name: "twitter:title", content: "Aguiar Nutrição Animal" },
-      { name: "twitter:description", content: "Calculadora de ração, gestão de plantel e consultor IA para avicultura e suinocultura." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/13461465-9796-4605-9a09-e6044f2033d9/id-preview-2605200d--3261ce6a-7576-4b8e-8fc4-8e0aab386087.lovable.app-1785029845661.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/13461465-9796-4605-9a09-e6044f2033d9/id-preview-2605200d--3261ce6a-7576-4b8e-8fc4-8e0aab386087.lovable.app-1785029845661.png" },
+      {
+        name: "twitter:description",
+        content:
+          "Calculadora de ração, gestão de plantel e consultor IA para avicultura e suinocultura.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/13461465-9796-4605-9a09-e6044f2033d9/id-preview-2605200d--3261ce6a-7576-4b8e-8fc4-8e0aab386087.lovable.app-1785029845661.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/13461465-9796-4605-9a09-e6044f2033d9/id-preview-2605200d--3261ce6a-7576-4b8e-8fc4-8e0aab386087.lovable.app-1785029845661.png",
+      },
     ],
     links: [
       {
@@ -96,6 +121,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: appCss,
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/icons/favicon-32.png", type: "image/png", sizes: "32x32" },
+      { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
+      { rel: "manifest", href: "/manifest.json" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -126,6 +154,11 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
