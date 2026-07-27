@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import "./aguiar.css";
 
 export const Route = createFileRoute("/")({
@@ -64,7 +65,24 @@ function brl(n: number) {
 
 function AguiarApp() {
   const [tab, setTab] = useState<"calc" | "plantel" | "chat" | "conta">("calc");
-  const [account, setAccount] = useState<{ email: string; isAdmin: boolean; validUntil: Date } | null>(null);
+  const [account, setAccount] = useState<{ email: string; isAdmin: boolean; validUntil: Date } | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = localStorage.getItem("aguiar_account");
+      if (!raw) return null;
+      const p = JSON.parse(raw);
+      return { email: p.email, isAdmin: !!p.isAdmin, validUntil: new Date(p.validUntil) };
+    } catch { return null; }
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (account) {
+      localStorage.setItem("aguiar_account", JSON.stringify({ ...account, validUntil: account.validUntil.toISOString() }));
+    } else {
+      localStorage.removeItem("aguiar_account");
+    }
+  }, [account]);
 
   const acctActive = account && account.validUntil > new Date();
   const acctLabel = account ? account.email.split("@")[0] : "Visitante";
