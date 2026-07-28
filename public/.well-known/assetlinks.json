@@ -1,10 +1,8 @@
-[
-  {
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "store.arnanutricaoanimal.app",
-      "sha256_cert_fingerprints": ["SUA_FINGERPRINT_AQUI"]
-    }
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "store.arnanutricaoanimal.twa",
+    "sha256_cert_fingerprints": ["EE:BF:44:8A:12:2E:88:7B:32:01:93:44:A2:A0:85:AB:89:68:61:79:DA:9D:71:26:04:C8:88:06:08:C3:4A:E5"]
   }
-]
+}]
