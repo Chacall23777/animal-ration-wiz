@@ -390,7 +390,7 @@ function AguiarAppInner({
         <SanitarioPanel />
       </section>
       <section className={`panel ${tab === "chat" ? "active" : ""}`}>
-        <ChatPanel />
+        <ChatPanel key={user.id} />
       </section>
       <section className={`panel ${tab === "galeria" ? "active" : ""}`}>
         <GaleriaPanel userId={user.id} activeProperty={active} />
