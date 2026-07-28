@@ -257,12 +257,16 @@ function AguiarAppInner({
         <PropertyOnboarding
           user={session.user}
           onDone={() => setShowOnboarding(false)}
+          allowCancel
+          onCancel={() => setShowOnboarding(false)}
         />
       )}
       {showNewProperty && session.user && (
         <PropertyOnboarding
           user={session.user}
           onDone={() => setShowNewProperty(false)}
+          allowCancel
+          onCancel={() => setShowNewProperty(false)}
         />
       )}
       {/* MASTHEAD */}
