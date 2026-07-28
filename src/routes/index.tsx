@@ -27,6 +27,12 @@ import {
   type Vacina,
 } from "@/lib/lotes-store";
 import { SPECIES, SOON_SPECIES } from "@/lib/species";
+import {
+  useFinanceStore,
+  setTransacoes,
+  CATEGORIAS,
+  type TxCategory,
+} from "@/lib/finance-store";
 
 export const Route = createFileRoute("/")({
   component: AguiarApp,
