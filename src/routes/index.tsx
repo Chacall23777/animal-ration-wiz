@@ -396,12 +396,12 @@ function CalculadoraPanel() {
       )}
 
       <p className="disclaimer">
-        * Fórmulas de referência (milho, farelo de soja, núcleo e{" "}
+        * Fórmulas de referência{" "}
         {animal === "poultry"
-          ? " calcário/farelo de ostra — fonte extra de cálcio para casca do ovo na fase de postura"
-          : " calcário calcítico — sem farelo de ostra, que não é indicado para a formulação de suínos"}
-        ). Ajustes finos variam por linhagem, peso e desempenho — valide com um zootecnista ou
-        médico veterinário antes de usar em escala.
+          ? "(milho, farelo de soja, núcleo e calcário/farelo de ostra — fonte extra de cálcio para casca do ovo na fase de postura)"
+          : "(milho, farelo de soja e núcleo — o cálcio já vem no núcleo mineral do suíno; farelo de ostra e calcário não fazem parte da formulação)"}
+        . Ajustes finos variam por linhagem, peso e desempenho — valide com um zootecnista ou médico
+        veterinário antes de usar em escala.
       </p>
     </>
   );
