@@ -376,6 +376,7 @@ function AguiarAppInner({
           produtor={(user.user_metadata as { full_name?: string })?.full_name || acctLabel}
           email={user.email ?? undefined}
           session={session}
+          activeProperty={active}
         />
       </section>
       <section className={`panel ${tab === "financeiro" ? "active" : ""}`}>
