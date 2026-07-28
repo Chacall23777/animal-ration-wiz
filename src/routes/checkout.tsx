@@ -44,7 +44,7 @@ function CheckoutPage() {
     plan === "aguiar_anual" || plan === "aguiar_mensal" ? plan : "aguiar_vitalicio";
   const label =
     priceId === "aguiar_vitalicio"
-      ? "Acesso vitalício — 7 dias grátis, depois R$ 97 uma única vez"
+      ? "Acesso vitalício — 7 dias grátis, depois R$ 97 (cobrança única)"
       : priceId === "aguiar_anual"
         ? "Anual — R$ 500/ano"
         : "Mensal — R$ 50/mês";

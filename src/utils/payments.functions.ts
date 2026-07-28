@@ -42,6 +42,14 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
           }),
         }),
         ...(isLifetimeTrial && { payment_method_collection: "always" as const }),
+        ...(isLifetimeTrial && {
+          custom_text: {
+            submit: {
+              message:
+                "Cobrança única de R$ 97,00 após 7 dias grátis. Acesso vitalício — nenhuma renovação será cobrada.",
+            },
+          },
+        }),
       });
 
       return { clientSecret: session.client_secret ?? "" };
