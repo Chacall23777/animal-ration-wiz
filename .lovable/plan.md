@@ -1,71 +1,69 @@
 
-Vou entregar isto em **4 fatias**, cada uma um turno. Cada fatia é utilizável sozinha e o app continua funcionando entre elas.
+# Plano — ARNAR como ERP Agro Inteligente
+
+Escopo grande. Vou dividir em fases entregáveis, sem remover nada do que já existe (calculadora, plantel, financeiro, sanitário, IA, galeria, propriedades, relatórios PDF/Excel, PWA/TWA, Stripe trial→R$97 vitalício).
 
 ---
 
-## Fatia 1 — Banco + upload de fotos + perfil do produtor
+## Fase 1 — Controle de acesso rígido (login gated por banco)
 
-**Objetivo:** dar base de dados e storage para tudo que vem depois.
+**Objetivo:** Ninguém entra só por ter conta Google. Todo login consulta o banco.
 
-Banco (uma migration):
-- `properties` (id, owner_id → auth.users, name, city, state, country, description, whatsapp, instagram, photo_url, logo_url, is_default, timestamps). RLS: dono lê/escreve as suas; admin lê tudo.
-- `property_photos` (id, property_id, lote_id nullable, url, category enum: `propriedade|lote|animais|galpao|aviario|pocilga`, caption, created_at). RLS por dono da propriedade.
-- Adicionar `avatar_url`, `whatsapp`, `instagram` em `profiles`.
-- GRANTs para `authenticated` + `service_role` na ordem correta.
+- Nova tabela `access_control` (email, tipo: `super_admin` | `admin` | `lifetime` | `trial` | `blocked`, nome, criado_por, criado_em).
+- Semear `rogeriopereira289@gmail.com` como `super_admin` permanente (nunca bloqueável, nunca cobrado — proteção no backend).
+- Server function `resolveAccess(email)` chamada logo após o login (Google ou senha). Se não existir e não estiver em trial ativo → sign out imediato + tela "Email não autorizado. Deseja iniciar teste gratuito?".
+- Tela `/auth` redesenhada: apenas dois botões — **Entrar** e **Quero testar o ARNAR**. Sem "Cadastrar-se".
+- Reaproveita `pending_access` existente + fundir com nova lógica de tipos.
 
-Storage:
-- Buckets públicos `avatars`, `property-photos`, `property-logos` via `supabase--storage_create_bucket`.
-- Policies em `storage.objects`: leitura pública; upload/update/delete só pelo dono (path prefixado por `auth.uid()`).
+## Fase 2 — Liberação por Admin com link mágico de 30 min
 
-Frontend:
-- `src/lib/properties-store.ts` — hook `useProperties()` que carrega/cria/edita/deleta propriedades do banco (React Query).
-- Componente `PropertyOnboarding`: modal exibido no primeiro login (ou quando `properties` estiver vazia) pedindo foto do produtor, nome completo, nome da propriedade, cidade, estado, país, whatsapp/instagram (opcionais). Salva em `profiles` + cria primeira `properties`.
-- `useActiveProperty()` guarda em `localStorage` a propriedade selecionada; header ganha seletor "Fazenda Santa Luzia ▾" com opção "Nova propriedade".
+- Admin/Super Admin informa **nome + email** → cria registro em `access_control` (lifetime) + `profiles` provisório + envia magic link Supabase (`type: invite`, expira 30 min).
+- Usuário abre link → tela `/set-password` → define senha → acesso vitalício imediato.
+- Bloqueio no backend: usuários criados por admin nunca entram em fluxo Stripe.
 
-**Não muda ainda:** relatórios, lotes por propriedade (usam a propriedade ativa mas ainda em localStorage), dashboard.
+## Fase 3 — Trial com cartão obrigatório + notificações D-5/D-6/D-7
 
----
+- Botão "Quero testar o ARNAR" → cria conta + Checkout Stripe com `trial_period_days: 7` (já existe `aguiar_vitalicio` R$97).
+- Tela transparente: "Sem cobrança nos 7 dias. No 8º dia, cobrança única de R$97 = acesso vitalício. Cancele antes para não ser cobrado."
+- Job diário (server route + pg_cron ou edge cron): envia email nos dias 5, 6, 7 do trial.
+- Após pagamento confirmado: marca `lifetime` em `access_control` e trava novas cobranças (garantia server-side no webhook).
+- Trial limits (10 animais / 2 lotes / 5 relatórios) já implementados — apenas reforçar UI.
 
-## Fatia 2 — Lotes ligados a propriedade + dashboard por propriedade
+## Fase 4 — Super Admin Panel expandido
 
-- Adicionar `property_id` nos objetos `Lote` e `MovimentoFinanceiro`. Migração dos dados atuais em localStorage para a propriedade default do usuário (feito no client no primeiro carregamento pós-fatia).
-- Filtrar Plantel, Financeiro, Sanitário e Início pela propriedade ativa.
-- Redesenhar `InicioPanel` no estilo Nubank/Notion com cards:
-  Fazenda ativa · aves totais · suínos totais · lotes · produção do mês · consumo total · previsão de consumo · vacinas pendentes · alertas · relatórios rápidos · lucro estimado · produção total.
-- Animações suaves (framer-motion já pode ser usado com CSS transitions), barras de progresso, ícones do lucide-react (já disponível).
+- Aba "Sistema" (só super admin): estatísticas globais, todos os pagamentos, todos os lotes de todas as propriedades, todos os usuários, criar admins, backup export (JSON), auditoria completa.
+- Proteção: `rogeriopereira289@gmail.com` — flag `is_protected` no backend impede qualquer UPDATE que remova admin/lifetime dele.
 
----
+## Fase 5 — Biblioteca Inteligente
 
-## Fatia 3 — Galeria de fotos + Minha Conta expandida
+- Tabela `library_articles` (título, categoria: manejo/nutrição/sanidade/biosseguridade/produção, conteúdo markdown, autor, publicado_em).
+- CRUD só para super admin. Leitura para todos os usuários ativos.
+- Nova aba "Biblioteca" com cards, busca, filtros.
 
-- `PropertyGallery`: grid organizado por categoria (Propriedade / Lotes / Animais / Galpão / Aviário / Pocilga), upload direto para storage, preview em lightbox.
-- `MinhaContaPanel` reformulado com as seções pedidas: Alterar foto · Alterar senha · Alterar e-mail · Minhas propriedades · Minhas exportações · Minhas vacinas · Meus relatórios · Meus lotes · Configurações. Cada uma abre um subpainel navegável.
-- "Minhas propriedades" permite CRUD completo (editar/excluir/definir padrão, adicionar logo e foto).
-- Alterar senha via `supabase.auth.updateUser`, e-mail idem.
+## Fase 6 — Modo offline inteligente + sync
 
----
+- Service Worker já cacheia shell. Adicionar IndexedDB para lotes/financeiro/plantel.
+- Fila de mutations offline → sync quando `navigator.onLine`.
 
-## Fatia 4 — Relatórios ricos (PDF + Excel) usando propriedade + fotos
+## Fase 7 — Espécies escaláveis + polimento visual
 
-- `plantel-report.ts` passa a receber `property` + `producer` + `photos` opcionais.
-- **PDF** (jspdf): cabeçalho com logo ARNAR à esquerda, logo da propriedade à direita, foto da propriedade em faixa opcional, bloco produtor (nome, whatsapp, instagram, cidade/estado), bloco propriedade, tabela do lote (qtd, peso, consumo diário/mensal, ganho de peso, previsão, vacinas), lucro estimado, gráficos inteligentes (barras de consumo por dia, pizza de custos), QR code apontando para a página do lote, data de emissão, rodapé "ARNAR — Aguiar Nutrição Animal".
-- **Excel** (xlsx): abas *Resumo*, *Lote*, *Consumo*, *Vacinas*, *Financeiro*, *Histórico*, *Observações* — todas com produtor/propriedade no topo, gráficos nativos onde possível.
-- Relatórios do dashboard puxam automaticamente a propriedade ativa.
+- `species.ts` já existe para suínos/aves. Adicionar registry declarativo pronto para bovinos, ovinos, caprinos, equinos, peixes, camarões, abelhas, cães, gatos (parâmetros zerados, ativáveis).
+- Refinar UI Nubank-style: microinterações, skeletons, dark mode consistente, tipografia mobile-first para usuário de 70 anos.
 
 ---
 
-## Aparência (aplicada em todas as fatias)
+## Detalhes técnicos
 
-- Continuar no design system atual (verde/dourado ARNA, dark mode já implementado).
-- Cards arredondados, sombra leve, ícones lucide, tipografia atual.
-- Sem telas poluídas: cada painel abre em stack navigation, um assunto por tela no mobile.
+- **Migrations Supabase:** `access_control`, `library_articles`, extensão `pending_access`, RLS + GRANTs.
+- **Server functions:** `resolveAccess`, `inviteUserByAdmin`, `sendTrialReminder`, `library.*`, `superAdmin.exportBackup`.
+- **Server route público:** `/api/public/cron/trial-reminders` protegido por header secret + agendado externamente.
+- **Stripe webhook:** já processa `invoice.paid` — adicionar guard para não recobrar quem já é `lifetime`.
+- **Frontend:** refazer `/auth`, adicionar `/set-password`, nova aba Biblioteca, expandir ContaPanel.
 
 ---
 
-## Notas técnicas
+## Ordem de execução sugerida
 
-- Nada de Edge Function nova; tudo via `createServerFn` + RLS. Uploads direto do cliente com o Supabase client autenticado.
-- Fotos armazenadas em `avatars/<uid>/...`, `property-photos/<uid>/<property_id>/...`, `property-logos/<uid>/<property_id>/...` para que a policy de storage possa validar por prefixo.
-- Fatias 2–4 dependem da fatia 1 (banco + storage). Vou parar após cada fatia para você validar antes da próxima.
+Começo pela **Fase 1 + Fase 2** (base de segurança) — é o núcleo do que você pediu e destrava o resto. Depois avanço para 3, 4, 5, 6, 7 em turnos separados, cada um com preview verificável.
 
-**Confirma para eu começar pela Fatia 1?**
+Confirma pra eu começar pela Fase 1+2, ou quer priorizar outra fase primeiro?
