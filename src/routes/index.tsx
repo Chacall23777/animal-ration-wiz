@@ -214,7 +214,10 @@ function AguiarApp() {
         <CalculadoraPanel />
       </section>
       <section className={`panel ${tab === "plantel" ? "active" : ""}`}>
-        <PlantelPanel />
+        <PlantelPanel
+          produtor={session.user.user_metadata?.full_name || acctLabel}
+          email={session.user.email ?? undefined}
+        />
       </section>
       <section className={`panel ${tab === "chat" ? "active" : ""}`}>
         <ChatPanel />
