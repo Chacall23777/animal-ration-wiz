@@ -1,6 +1,21 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+export type LoteContext = {
+  id: string;
+  nome: string;
+  animal: string;      // "Aves" | "Suínos" | etc.
+  fase: string;
+  qtd: number;
+  idadeDias: number;
+  pesoAtualKg: number;
+  consumoDiaKg: number;
+  custoMesBRL: number;
+  receitaMesBRL: number;
+  vacinasPendentes: string[];
+  observacoes?: string;
+};
+
 export type ArnaMemory = {
   species?: string;
   herdSize?: string;
@@ -8,6 +23,8 @@ export type ArnaMemory = {
   objectives?: string;
   ingredients?: string;
   notes?: string;
+  lotes?: LoteContext[];
+  focusLoteId?: string;
 };
 
 export type ArnaChatMsg = { role: "user" | "assistant"; content: string };
@@ -33,6 +50,24 @@ function memoryBlock(m?: ArnaMemory): string {
   return rows.length ? rows.join("\n") : "Nenhuma memória salva sobre o usuário ainda.";
 }
 
+function lotesBlock(m?: ArnaMemory): string {
+  const lotes = m?.lotes ?? [];
+  if (!lotes.length) return "Nenhum lote cadastrado no Plantel do produtor.";
+  const focusId = m?.focusLoteId;
+  const header = focusId
+    ? "LOTES DO PRODUTOR (dado real do app; o produtor pediu foco no lote marcado com ▶):"
+    : "LOTES DO PRODUTOR (dado real do app; use para respostas contextualizadas):";
+  const rows = lotes.map((l) => {
+    const mark = focusId && l.id === focusId ? "▶" : "•";
+    const vac = l.vacinasPendentes.length
+      ? ` | vacinas pendentes: ${l.vacinasPendentes.join(", ")}`
+      : " | vacinas em dia";
+    const obs = l.observacoes ? ` | obs: ${l.observacoes}` : "";
+    return `${mark} ${l.nome} — ${l.animal}/${l.fase} · ${l.qtd} animais · ${l.idadeDias}d idade · peso ${l.pesoAtualKg.toFixed(2)}kg · consumo ${l.consumoDiaKg.toFixed(1)}kg/dia · custo R$${l.custoMesBRL.toFixed(0)}/mês · receita R$${l.receitaMesBRL.toFixed(0)}/mês${vac}${obs}`;
+  });
+  return [header, ...rows].join("\n");
+}
+
 function systemPrompt(memory: ArnaMemory | undefined, pro: boolean): string {
   return [
     "Você é o ARNA AI, consultor virtual da Aguiar Nutrição Animal.",
@@ -45,10 +80,14 @@ function systemPrompt(memory: ArnaMemory | undefined, pro: boolean): string {
     "4. Respeite limites mínimos e máximos das exigências nutricionais da categoria.",
     "5. Justifique tecnicamente cada recomendação.",
     "6. Responda sempre em português do Brasil, tom direto e prático para o produtor rural.",
-    pro ? "MODO ARNA AI PRO: atue como Zootecnista/Nutricionista sênior — pode formular rações completas, calcular custos, comparar ingredientes, sugerir substituições e emitir relatório técnico detalhado." : "Modo padrão: responda em linguagem acessível ao produtor, com passos práticos.",
+    pro
+      ? "MODO ESPECIALISTA (PRO): atue como Zootecnista/Nutricionista sênior. Analise o(s) lote(s) reais do produtor listados abaixo, cruzando idade, peso, consumo, custo, receita e vacinas pendentes. Estruture a resposta em: 1) Diagnóstico; 2) Nutrição (ração recomendada e ajustes); 3) Sanidade (vacinas / manejo); 4) Produtividade (metas e previsões); 5) Financeiro (impacto R$/mês); 6) Ações imediatas (3 a 5 bullets). Use os dados reais dos lotes — não invente números; se faltar dado, peça."
+      : "Modo padrão: responda em linguagem acessível ao produtor, com passos práticos.",
     "",
     "MEMÓRIA DO USUÁRIO (use para personalizar as respostas; se algo faltar, pergunte):",
     memoryBlock(memory),
+    "",
+    lotesBlock(memory),
   ].join("\n");
 }
 

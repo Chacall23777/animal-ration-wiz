@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import "./aguiar.css";
 import arnaLogo from "@/assets/arna-logo.png.asset.json";
-import { arnaChat, type ArnaMemory, type ArnaChatMsg } from "@/utils/arna-chat.functions";
+import { arnaChat, type ArnaMemory, type ArnaChatMsg, type LoteContext } from "@/utils/arna-chat.functions";
 import { useSession } from "@/lib/session";
 import { useTrialReports, TRIAL_MAX_LOTES, TRIAL_MAX_ANIMAIS, TRIAL_MAX_RELATORIOS, isTrial } from "@/lib/trial-limits";
 import { supabase } from "@/integrations/supabase/client";
@@ -1934,6 +1934,14 @@ function loadHistory(): Msg[] {
 function saveHistory(m: Msg[]) {
   try { localStorage.setItem(HISTORY_KEY, JSON.stringify(m.slice(-40))); } catch {}
 }
+const LOTE_NOTES_KEY = "arna_lote_notes_v1";
+function loadLoteNotes(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try { return JSON.parse(localStorage.getItem(LOTE_NOTES_KEY) || "{}"); } catch { return {}; }
+}
+function saveLoteNotes(n: Record<string, string>) {
+  try { localStorage.setItem(LOTE_NOTES_KEY, JSON.stringify(n)); } catch {}
+}
 
 function ChatPanel() {
   const initialMsgs: Msg[] = [
@@ -1951,7 +1959,62 @@ function ChatPanel() {
   const [pro, setPro] = useState(false);
   const [memory, setMemory] = useState<ArnaMemory>(() => loadMemory());
   const [showMem, setShowMem] = useState(false);
+  const [focusLoteId, setFocusLoteId] = useState<string>("");
+  const [loteNotes, setLoteNotes] = useState<Record<string, string>>(() => loadLoteNotes());
   const bodyRef = useRef<HTMLDivElement>(null);
+  const { lotes, estoque } = useLotesStore();
+
+  const hojeChat = new Date();
+  const loteContexts: LoteContext[] = useMemo(() => {
+    return lotes.map((l) => {
+      const phase = PHASES[l.animal].find((p) => p.id === l.phaseId) ?? PHASES[l.animal][0];
+      const idadeDias = Math.max(0, daysBetween(new Date(l.dataEntrada), hojeChat));
+      const qtdAtual = Math.max(0, Math.round(l.qtd * (1 - l.mortalidadePct / 100)));
+      const consumoDia = phase.consumoDia * qtdAtual;
+      const ganhoDiaExp =
+        l.animal === "swine" && phase.producaoTipo === "ganho" && phase.producao
+          ? phase.producao
+          : l.animal === "poultry"
+            ? (l.pesoAlvo - l.pesoInicial) / 140
+            : 0;
+      const pesoAtual = ganhoDiaExp > 0
+        ? Math.min(l.pesoAlvo, l.pesoInicial + ganhoDiaExp * idadeDias)
+        : l.pesoInicial;
+      const custoMes = consumoDia * 30 * estoque.precoKg;
+      const receitaMes =
+        l.animal === "poultry" && phase.producaoTipo === "ovos" && phase.producao
+          ? ((phase.producao * qtdAtual) / 12) * 30 * l.precoVenda
+          : l.animal === "swine" && phase.producaoTipo === "ganho" && phase.producao
+            ? phase.producao * qtdAtual * 30 * l.precoVenda
+            : 0;
+      const entradaMs = new Date(l.dataEntrada).getTime();
+      const vacinasPendentes = l.vacinas
+        .filter((v) => !v.aplicadaEm)
+        .map((v) => {
+          const data = new Date(entradaMs + v.diaIdeal * 86_400_000);
+          return `${v.nome} (dia ${v.diaIdeal}, ${data.toLocaleDateString("pt-BR")})`;
+        });
+      return {
+        id: l.id,
+        nome: l.nome,
+        animal: l.animal === "poultry" ? "Aves" : "Suínos",
+        fase: phase.label,
+        qtd: qtdAtual,
+        idadeDias,
+        pesoAtualKg: pesoAtual,
+        consumoDiaKg: consumoDia,
+        custoMesBRL: custoMes,
+        receitaMesBRL: receitaMes,
+        vacinasPendentes,
+        observacoes: loteNotes[l.id]?.trim() || undefined,
+      };
+    });
+  }, [lotes, estoque.precoKg, loteNotes]);
+
+  useEffect(() => { saveLoteNotes(loteNotes); }, [loteNotes]);
+  useEffect(() => {
+    if (focusLoteId && !lotes.find((l) => l.id === focusLoteId)) setFocusLoteId("");
+  }, [lotes, focusLoteId]);
 
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: "smooth" });
@@ -1972,8 +2035,14 @@ function ChatPanel() {
       .filter((m) => m.who === "user" || m.who === "ai")
       .map((m) => ({ role: m.who === "user" ? "user" : "assistant", content: m.text }));
 
+    const memoryPayload: ArnaMemory = {
+      ...memory,
+      lotes: loteContexts,
+      focusLoteId: focusLoteId || undefined,
+    };
+
     try {
-      const res = await arnaChat({ data: { messages: history, memory, pro, clientId: getClientId() } });
+      const res = await arnaChat({ data: { messages: history, memory: memoryPayload, pro, clientId: getClientId() } });
       if ("error" in res) {
         setMsgs((m) => [...m, { who: "system-note", text: `⚠ ${res.error}` }]);
       } else {
@@ -1996,11 +2065,13 @@ function ChatPanel() {
       <div className="chat-head">
         <div>
           <h4>ARNA AI {pro && <span style={{ color: "var(--gold, #c89b3c)" }}>PRO</span>}</h4>
-          <span>consultor virtual em nutrição animal</span>
+          <span>
+            {pro ? "modo Especialista — analisando lotes reais" : "consultor virtual em nutrição animal"}
+          </span>
         </div>
         <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
           <button className="btn" type="button" onClick={() => setPro((v) => !v)} style={{ padding: "6px 10px", fontSize: 12 }}>
-            {pro ? "Modo padrão" : "Modo PRO"}
+            {pro ? "Modo padrão" : "Modo Especialista"}
           </button>
           <button className="btn" type="button" onClick={() => setShowMem((v) => !v)} style={{ padding: "6px 10px", fontSize: 12 }}>
             {showMem ? "Fechar memória" : "Memória"}
@@ -2012,6 +2083,45 @@ function ChatPanel() {
       </div>
       {showMem && (
         <MemoryEditor memory={memory} onChange={setMemory} />
+      )}
+      {loteContexts.length > 0 && (
+        <div style={{ padding: "10px 14px", borderTop: "1px solid rgba(0,0,0,.08)", borderBottom: "1px solid rgba(0,0,0,.08)", background: "rgba(0,0,0,.02)", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+          <span style={{ fontSize: 12, color: "var(--ink-soft, #666)" }}>Foco:</span>
+          <select
+            value={focusLoteId}
+            onChange={(e) => setFocusLoteId(e.target.value)}
+            style={{ padding: "4px 8px", fontSize: 12, borderRadius: 6, border: "1px solid rgba(0,0,0,.15)" }}
+          >
+            <option value="">Todos os lotes ({loteContexts.length})</option>
+            {loteContexts.map((l) => (
+              <option key={l.id} value={l.id}>{l.nome} — {l.animal}/{l.fase}</option>
+            ))}
+          </select>
+          {focusLoteId && (
+            <>
+              <button
+                type="button"
+                className="btn"
+                disabled={typing}
+                onClick={() => {
+                  const l = loteContexts.find((x) => x.id === focusLoteId);
+                  if (!l) return;
+                  send(`Faça uma análise completa do lote "${l.nome}" (${l.animal}/${l.fase}): diagnóstico, nutrição, sanidade, produtividade, financeiro e ações imediatas.`);
+                }}
+                style={{ padding: "4px 10px", fontSize: 12 }}
+              >
+                Analisar este lote
+              </button>
+              <input
+                type="text"
+                placeholder="Nota deste lote (memória privada)"
+                value={loteNotes[focusLoteId] ?? ""}
+                onChange={(e) => setLoteNotes((n) => ({ ...n, [focusLoteId]: e.target.value }))}
+                style={{ flex: 1, minWidth: 180, padding: "4px 8px", fontSize: 12, borderRadius: 6, border: "1px solid rgba(0,0,0,.15)" }}
+              />
+            </>
+          )}
+        </div>
       )}
       <div className="chat-body" ref={bodyRef}>
         {msgs.map((m, i) => (
@@ -2064,7 +2174,8 @@ function ChatPanel() {
 function MemoryEditor({ memory, onChange }: { memory: ArnaMemory; onChange: (m: ArnaMemory) => void }) {
   const [m, setM] = useState<ArnaMemory>(memory);
   useEffect(() => { setM(memory); }, [memory]);
-  const field = (k: keyof ArnaMemory, label: string, placeholder: string) => (
+  type StringKey = "species" | "herdSize" | "avgWeight" | "objectives" | "ingredients" | "notes";
+  const field = (k: StringKey, label: string, placeholder: string) => (
     <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
       <span style={{ color: "var(--ink-soft, #666)" }}>{label}</span>
       <input
