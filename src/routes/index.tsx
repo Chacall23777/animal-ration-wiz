@@ -69,7 +69,7 @@ const PHASES: Record<AnimalKey, Phase[]> = {
     {
       id: "creche",
       label: "Creche (7–30 kg)",
-      formula: { milho: 62, soja: 32, nucleo: 5, calcario: 1 },
+      formula: { milho: 63, soja: 32, nucleo: 5, calcario: 0 },
       consumoDia: 0.9,
       producao: 0.45,
       producaoTipo: "ganho",
@@ -77,7 +77,7 @@ const PHASES: Record<AnimalKey, Phase[]> = {
     {
       id: "crescimento",
       label: "Crescimento (30–70 kg)",
-      formula: { milho: 68, soja: 27, nucleo: 4, calcario: 1 },
+      formula: { milho: 69, soja: 27, nucleo: 4, calcario: 0 },
       consumoDia: 2.2,
       producao: 0.85,
       producaoTipo: "ganho",
@@ -85,7 +85,7 @@ const PHASES: Record<AnimalKey, Phase[]> = {
     {
       id: "terminacao",
       label: "Terminação (70–110 kg)",
-      formula: { milho: 72, soja: 23, nucleo: 4, calcario: 1 },
+      formula: { milho: 73, soja: 23, nucleo: 4, calcario: 0 },
       consumoDia: 3.0,
       producao: 0.95,
       producaoTipo: "ganho",
@@ -93,13 +93,13 @@ const PHASES: Record<AnimalKey, Phase[]> = {
     {
       id: "gestacao",
       label: "Gestação",
-      formula: { milho: 65, soja: 27, nucleo: 5, calcario: 3 },
+      formula: { milho: 68, soja: 27, nucleo: 5, calcario: 0 },
       consumoDia: 2.5,
     },
     {
       id: "lactacao",
       label: "Lactação",
-      formula: { milho: 63, soja: 30, nucleo: 5, calcario: 2 },
+      formula: { milho: 65, soja: 30, nucleo: 5, calcario: 0 },
       consumoDia: 5.5,
     },
   ],
@@ -222,7 +222,7 @@ function PaywallScreen() {
         <img src={arnaLogo.url} alt="ARNA — Nutrição Animal Inteligente" className="paywall-logo" />
       </div>
       <h1 className="paywall-title">AGUIAR NUTRIÇÃO ANIMAL</h1>
-      <div className="tag paywall-tag">Consultoria Rural · Rogério r</div>
+      <div className="tag paywall-tag">Consultoria Rural</div>
       <p className="paywall-copy">
         Calculadora de ração, gestão de plantel e consultor IA para avicultura e suinocultura. Entre
         com sua conta ou assine para liberar o app completo.
@@ -246,11 +246,13 @@ function CalculadoraPanel() {
 
   const displayQty = unit === "kg" ? qtyKg : qtyKg / 1000;
 
-  const rows = INGR_META.map((m) => {
-    const pct = phase.formula[m.key];
-    const label = m.key === "calcario" ? calcarioLabel(animal) : m.label;
-    return { ...m, label, pct, kg: (qtyKg * pct) / 100 };
-  });
+  const rows = INGR_META
+    .filter((m) => !(animal === "swine" && m.key === "calcario"))
+    .map((m) => {
+      const pct = phase.formula[m.key];
+      const label = m.key === "calcario" ? calcarioLabel(animal) : m.label;
+      return { ...m, label, pct, kg: (qtyKg * pct) / 100 };
+    });
 
   return (
     <>
@@ -485,7 +487,9 @@ function PlantelPanel() {
           Usado para calcular o custo por kg de ração de cada fórmula automaticamente
         </div>
         <div className="price-grid">
-          {(["milho", "soja", "nucleo", "calcario"] as const).map((k) => (
+          {(["milho", "soja", "nucleo", "calcario"] as const)
+            .filter((k) => !(animal === "swine" && k === "calcario"))
+            .map((k) => (
             <div className="field" key={k}>
               <label>
                 {k === "milho"
