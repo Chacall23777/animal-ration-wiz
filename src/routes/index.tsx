@@ -348,6 +348,12 @@ function AguiarAppInner({
           Consultor IA
         </button>
         <button
+          className={`tab-btn ${tab === "galeria" ? "active" : ""}`}
+          onClick={() => setTab("galeria")}
+        >
+          Galeria
+        </button>
+        <button
           className={`tab-btn ${tab === "conta" ? "active" : ""}`}
           onClick={() => setTab("conta")}
         >
@@ -380,8 +386,11 @@ function AguiarAppInner({
       <section className={`panel ${tab === "chat" ? "active" : ""}`}>
         <ChatPanel />
       </section>
+      <section className={`panel ${tab === "galeria" ? "active" : ""}`}>
+        <GaleriaPanel userId={user.id} activeProperty={active} />
+      </section>
       <section className={`panel ${tab === "conta" ? "active" : ""}`}>
-        <ContaPanel />
+        <ContaPanel activeProperty={active} />
       </section>
     </div>
   );
