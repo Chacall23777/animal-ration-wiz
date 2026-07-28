@@ -6,8 +6,7 @@ import arnaLogo from "@/assets/arna-logo.png.asset.json";
 import { arnaChat, type ArnaMemory, type ArnaChatMsg } from "@/utils/arna-chat.functions";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/integrations/supabase/client";
-import { listSubscribers, grantAccess, finalizeCheckout } from "@/lib/admin.functions";
-import { getStripeEnvironment } from "@/lib/stripe";
+import { listSubscribers, grantAccess } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/")({
   component: AguiarApp,
@@ -1008,4 +1007,3 @@ function ContaPanel() {
   );
 }
 
-export { finalizeCheckout };
