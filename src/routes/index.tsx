@@ -2423,6 +2423,8 @@ function ContaPanel({ activeProperty }: { activeProperty: Property | null }) {
 
   return (
     <>
+      <ProdutorProfileBox userId={user.id} />
+      {activeProperty && <PropriedadeEditBox property={activeProperty} />}
       <div className="box">
         <h4>Minha assinatura</h4>
         <div className="status-row"><span>Usuário</span><b>{user.email}</b></div>
