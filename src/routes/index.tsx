@@ -433,20 +433,8 @@ function CalculadoraPanel() {
 }
 
 /* ===================== PLANTEL ===================== */
-type Vacina = { id: string; nome: string; diaIdeal: number; aplicadaEm?: string };
-type Lote = {
-  id: string;
-  nome: string;
-  animal: AnimalKey;
-  phaseId: string;
-  qtd: number;
-  dataEntrada: string; // ISO
-  pesoInicial: number; // kg / animal
-  pesoAlvo: number; // kg / animal (final desejado)
-  mortalidadePct: number; // % média esperada do ciclo
-  precoVenda: number; // dúzia de ovos (poultry) ou kg vivo (swine)
-  vacinas: Vacina[];
-};
+// Tipos Lote/Vacina agora vêm de "@/lib/lotes-store" para ficarem compartilhados
+// com o Dashboard (Início). Não redefinir aqui.
 
 const VACINAS_PADRAO: Record<AnimalKey, { nome: string; diaIdeal: number }[]> = {
   poultry: [
@@ -464,14 +452,7 @@ const VACINAS_PADRAO: Record<AnimalKey, { nome: string; diaIdeal: number }[]> = 
   ],
 };
 
-const LOTES_KEY = "arna_lotes_v1";
-function loadLotes(): Lote[] {
-  if (typeof window === "undefined") return [];
-  try { return JSON.parse(localStorage.getItem(LOTES_KEY) || "[]"); } catch { return []; }
-}
-function saveLotes(l: Lote[]) {
-  try { localStorage.setItem(LOTES_KEY, JSON.stringify(l)); } catch {}
-}
+// LOTES_KEY / loadLotes / saveLotes migrados para "@/lib/lotes-store"
 
 function daysBetween(a: Date, b: Date) {
   return Math.floor((b.getTime() - a.getTime()) / 86_400_000);
