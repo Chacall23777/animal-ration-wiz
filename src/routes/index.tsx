@@ -1934,6 +1934,14 @@ function loadHistory(): Msg[] {
 function saveHistory(m: Msg[]) {
   try { localStorage.setItem(HISTORY_KEY, JSON.stringify(m.slice(-40))); } catch {}
 }
+const LOTE_NOTES_KEY = "arna_lote_notes_v1";
+function loadLoteNotes(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try { return JSON.parse(localStorage.getItem(LOTE_NOTES_KEY) || "{}"); } catch { return {}; }
+}
+function saveLoteNotes(n: Record<string, string>) {
+  try { localStorage.setItem(LOTE_NOTES_KEY, JSON.stringify(n)); } catch {}
+}
 
 function ChatPanel() {
   const initialMsgs: Msg[] = [
