@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import "./aguiar.css";
 import arnaLogo from "@/assets/arna-logo.png.asset.json";
+import { arnaChat, type ArnaMemory, type ArnaChatMsg } from "@/utils/arna-chat.functions";
 
 export const Route = createFileRoute("/")({
   component: AguiarApp,
