@@ -408,13 +408,49 @@ function CalculadoraPanel() {
 }
 
 /* ===================== PLANTEL ===================== */
+type Vacina = { id: string; nome: string; diaIdeal: number; aplicadaEm?: string };
 type Lote = {
   id: string;
+  nome: string;
   animal: AnimalKey;
   phaseId: string;
   qtd: number;
+  dataEntrada: string; // ISO
+  pesoInicial: number; // kg / animal
+  pesoAlvo: number; // kg / animal (final desejado)
+  mortalidadePct: number; // % média esperada do ciclo
   precoVenda: number; // dúzia de ovos (poultry) ou kg vivo (swine)
+  vacinas: Vacina[];
 };
+
+const VACINAS_PADRAO: Record<AnimalKey, { nome: string; diaIdeal: number }[]> = {
+  poultry: [
+    { nome: "Marek", diaIdeal: 1 },
+    { nome: "Gumboro", diaIdeal: 14 },
+    { nome: "Bouba Aviária", diaIdeal: 35 },
+    { nome: "Newcastle", diaIdeal: 60 },
+    { nome: "Reforço Newcastle", diaIdeal: 120 },
+  ],
+  swine: [
+    { nome: "Ferro dextrano", diaIdeal: 3 },
+    { nome: "Micoplasma (1ª dose)", diaIdeal: 21 },
+    { nome: "Circovírus", diaIdeal: 28 },
+    { nome: "Peste Suína Clássica", diaIdeal: 60 },
+  ],
+};
+
+const LOTES_KEY = "arna_lotes_v1";
+function loadLotes(): Lote[] {
+  if (typeof window === "undefined") return [];
+  try { return JSON.parse(localStorage.getItem(LOTES_KEY) || "[]"); } catch { return []; }
+}
+function saveLotes(l: Lote[]) {
+  try { localStorage.setItem(LOTES_KEY, JSON.stringify(l)); } catch {}
+}
+
+function daysBetween(a: Date, b: Date) {
+  return Math.floor((b.getTime() - a.getTime()) / 86_400_000);
+}
 
 function PlantelPanel() {
   const [precos, setPrecos] = useState({ milho: 1.4, soja: 2.2, nucleo: 8.5, calcario: 0.6 });
@@ -422,7 +458,15 @@ function PlantelPanel() {
   const [phaseId, setPhaseId] = useState(PHASES.poultry[4].id);
   const [qtd, setQtd] = useState(100);
   const [preco, setPreco] = useState(12);
+  const [nome, setNome] = useState("Lote 1");
+  const [dataEntrada, setDataEntrada] = useState(() => new Date().toISOString().slice(0, 10));
+  const [pesoInicial, setPesoInicial] = useState(0.05);
+  const [pesoAlvo, setPesoAlvo] = useState(1.8);
+  const [mortalidadePct, setMortalidadePct] = useState(3);
   const [lotes, setLotes] = useState<Lote[]>([]);
+
+  useEffect(() => { setLotes(loadLotes()); }, []);
+  useEffect(() => { saveLotes(lotes); }, [lotes]);
 
   const phases = PHASES[animal];
 
@@ -437,34 +481,75 @@ function PlantelPanel() {
     );
   }
 
+  const hoje = new Date();
+
   const linhas = lotes.map((l) => {
-    const phase = PHASES[l.animal].find((p) => p.id === l.phaseId)!;
-    const consumoDia = phase.consumoDia * l.qtd; // kg/dia
+    const phase = PHASES[l.animal].find((p) => p.id === l.phaseId) ?? PHASES[l.animal][0];
+    const phaseList = PHASES[l.animal];
+    const phaseIdx = phaseList.findIndex((p) => p.id === phase.id);
+    const proximaFase = phaseList[phaseIdx + 1] ?? null;
+
+    const idadeDias = Math.max(0, daysBetween(new Date(l.dataEntrada), hoje));
+    const qtdAtual = Math.max(0, Math.round(l.qtd * (1 - l.mortalidadePct / 100)));
+
+    // Peso estimado do animal hoje
+    let pesoAtual = l.pesoInicial;
+    let ganhoMedioDia = phase.producaoTipo === "ganho" && phase.producao ? phase.producao : 0;
+    if (l.animal === "swine" && ganhoMedioDia > 0) {
+      pesoAtual = Math.min(l.pesoAlvo, l.pesoInicial + ganhoMedioDia * idadeDias);
+    } else if (l.animal === "poultry") {
+      // curva simples: pintainha 0,05kg → 1,8kg em ~140 dias
+      const ganhoAve = (l.pesoAlvo - l.pesoInicial) / 140;
+      pesoAtual = Math.min(l.pesoAlvo, l.pesoInicial + ganhoAve * idadeDias);
+      ganhoMedioDia = ganhoAve;
+    }
+
+    // Consumo (usa quantidade viva atual)
+    const consumoDia = phase.consumoDia * qtdAtual;
+    const consumoSemana = consumoDia * 7;
     const consumoMes = consumoDia * 30;
+    const consumoAno = consumoDia * 365;
+
+    // Dias e ração até o peso alvo (suínos) ou até 80 semanas de postura (aves)
+    let diasRestantes = 0;
+    if (l.animal === "swine" && ganhoMedioDia > 0) {
+      diasRestantes = Math.max(0, Math.ceil((l.pesoAlvo - pesoAtual) / ganhoMedioDia));
+    } else if (l.animal === "poultry") {
+      // ciclo de referência 560 dias (~80 sem) para postura, 42 dias para corte
+      const ciclo = phase.producaoTipo === "ovos" ? 560 : 42;
+      diasRestantes = Math.max(0, ciclo - idadeDias);
+    }
+    const racaoTotalCiclo = consumoDia * (idadeDias + diasRestantes);
+
+    // Custo mensal / receita
     const custoMes = consumoMes * custoRacaoPorKg(phase);
     let receitaMes = 0;
     let producaoLabel = "—";
+    let previsaoProdutiva = "—";
     if (phase.producaoTipo === "ovos" && phase.producao) {
-      // Média de ovos/dia calculada com base na quantidade de aves informada pelo usuário.
-      const ovosDia = phase.producao * l.qtd;
-      const duziasMes = (ovosDia * 30) / 12;
-      receitaMes = duziasMes * l.precoVenda;
-      producaoLabel = `${ovosDia.toFixed(0)} ovos/dia (média) · ${Math.round(ovosDia * 30)} ovos/mês`;
+      const ovosDia = phase.producao * qtdAtual;
+      receitaMes = ((ovosDia * 30) / 12) * l.precoVenda;
+      producaoLabel = `${ovosDia.toFixed(0)} ovos/dia · ${Math.round(ovosDia * 30)} ovos/mês`;
+      previsaoProdutiva = `${Math.round(ovosDia * diasRestantes)} ovos até fim do ciclo`;
     } else if (phase.producaoTipo === "ganho" && phase.producao) {
-      // Ganho de peso — específico de suínos: total do lote/dia e por animal/dia.
-      const ganhoKgDiaLote = phase.producao * l.qtd;
-      const ganhoKgMes = ganhoKgDiaLote * 30;
-      receitaMes = ganhoKgMes * l.precoVenda;
-      producaoLabel = `${ganhoKgDiaLote.toFixed(1)} kg/dia (lote) · ${phase.producao.toFixed(2)} kg/dia/animal · ${ganhoKgMes.toFixed(0)} kg/mês`;
+      const ganhoDia = phase.producao * qtdAtual;
+      receitaMes = ganhoDia * 30 * l.precoVenda;
+      producaoLabel = `${ganhoDia.toFixed(1)} kg/dia · ${(ganhoDia * 30).toFixed(0)} kg/mês`;
+      previsaoProdutiva = `${(l.pesoAlvo * qtdAtual).toFixed(0)} kg vivo total (abate)`;
     }
+
+    // Próxima vacina
+    const entradaMs = new Date(l.dataEntrada).getTime();
+    const proxVac = [...l.vacinas]
+      .filter((v) => !v.aplicadaEm)
+      .map((v) => ({ ...v, data: new Date(entradaMs + v.diaIdeal * 86_400_000) }))
+      .sort((a, b) => a.data.getTime() - b.data.getTime())[0];
+
     return {
-      lote: l,
-      phase,
-      consumoDia,
-      consumoMes,
-      custoMes,
-      receitaMes,
-      producaoLabel,
+      lote: l, phase, proximaFase, idadeDias, qtdAtual, pesoAtual,
+      consumoDia, consumoSemana, consumoMes, consumoAno,
+      diasRestantes, racaoTotalCiclo, custoMes, receitaMes,
+      producaoLabel, previsaoProdutiva, proxVac,
       lucro: receitaMes - custoMes,
     };
   });
@@ -474,10 +559,49 @@ function PlantelPanel() {
       custo: a.custo + l.custoMes,
       receita: a.receita + l.receitaMes,
       lucro: a.lucro + l.lucro,
-      animais: a.animais + l.lote.qtd,
+      animais: a.animais + l.qtdAtual,
+      consumoMes: a.consumoMes + l.consumoMes,
     }),
-    { custo: 0, receita: 0, lucro: 0, animais: 0 },
+    { custo: 0, receita: 0, lucro: 0, animais: 0, consumoMes: 0 },
   );
+
+  function addLote() {
+    const vacinas: Vacina[] = VACINAS_PADRAO[animal].map((v, i) => ({
+      id: `v_${i}_${Math.random().toString(36).slice(2, 6)}`,
+      nome: v.nome,
+      diaIdeal: v.diaIdeal,
+    }));
+    setLotes((l) => [
+      ...l,
+      {
+        id: Math.random().toString(36).slice(2),
+        nome: nome || `Lote ${l.length + 1}`,
+        animal, phaseId, qtd,
+        dataEntrada, pesoInicial, pesoAlvo,
+        mortalidadePct, precoVenda: preco, vacinas,
+      },
+    ]);
+  }
+
+  function toggleVacina(loteId: string, vacId: string) {
+    setLotes((ls) => ls.map((l) => l.id !== loteId ? l : {
+      ...l,
+      vacinas: l.vacinas.map((v) => v.id !== vacId ? v : {
+        ...v,
+        aplicadaEm: v.aplicadaEm ? undefined : new Date().toISOString().slice(0, 10),
+      }),
+    }));
+  }
+
+  function avancarFase(loteId: string) {
+    setLotes((ls) => ls.map((l) => {
+      if (l.id !== loteId) return l;
+      const list = PHASES[l.animal];
+      const idx = list.findIndex((p) => p.id === l.phaseId);
+      const nxt = list[idx + 1];
+      return nxt ? { ...l, phaseId: nxt.id } : l;
+    }));
+  }
 
   return (
     <>
@@ -515,10 +639,14 @@ function PlantelPanel() {
       <div className="box">
         <h4>Adicionar lote ao plantel</h4>
         <div className="sub">
-          Informe quantos animais você tem em cada fase e o preço de venda para calcular consumo,
-          produção, custo e lucro
+          Cadastre quantos lotes quiser — todos os indicadores (idade, peso, consumo, vacinas,
+          previsão produtiva e custos) são calculados automaticamente
         </div>
         <div className="form-grid">
+          <div className="field">
+            <label>Nome do lote</label>
+            <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Galpão 2" />
+          </div>
           <div className="field">
             <label>Animal</label>
             <select
@@ -527,6 +655,8 @@ function PlantelPanel() {
                 const a = e.target.value as AnimalKey;
                 setAnimal(a);
                 setPhaseId(PHASES[a][0].id);
+                setPesoInicial(a === "poultry" ? 0.05 : 7);
+                setPesoAlvo(a === "poultry" ? 1.8 : 110);
               }}
             >
               <option value="poultry">Frango de Postura</option>
@@ -553,6 +683,25 @@ function PlantelPanel() {
             />
           </div>
           <div className="field">
+            <label>Data de entrada</label>
+            <input type="date" value={dataEntrada} onChange={(e) => setDataEntrada(e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Peso inicial (kg/animal)</label>
+            <input type="number" step={0.01} value={pesoInicial}
+              onChange={(e) => setPesoInicial(parseFloat(e.target.value) || 0)} />
+          </div>
+          <div className="field">
+            <label>Peso alvo (kg/animal)</label>
+            <input type="number" step={0.1} value={pesoAlvo}
+              onChange={(e) => setPesoAlvo(parseFloat(e.target.value) || 0)} />
+          </div>
+          <div className="field">
+            <label>Mortalidade média (%)</label>
+            <input type="number" step={0.1} value={mortalidadePct}
+              onChange={(e) => setMortalidadePct(parseFloat(e.target.value) || 0)} />
+          </div>
+          <div className="field">
             <label>
               {animal === "poultry" ? "Preço dúzia de ovos (R$)" : "Preço kg vivo (R$)"}
             </label>
@@ -565,86 +714,113 @@ function PlantelPanel() {
           </div>
         </div>
         <div style={{ marginTop: 14 }}>
-          <button
-            className="btn"
-            onClick={() => {
-              setLotes((l) => [
-                ...l,
-                {
-                  id: Math.random().toString(36).slice(2),
-                  animal,
-                  phaseId,
-                  qtd,
-                  precoVenda: preco,
-                },
-              ]);
-            }}
-          >
-            Adicionar ao plantel
-          </button>
+          <button className="btn" onClick={addLote}>Adicionar ao plantel</button>
         </div>
       </div>
 
       <div className="box">
         <h4>Plantel atual</h4>
-        <div className="sub">Consumo, produção e resultado financeiro estimados por lote</div>
+        <div className="sub">
+          Idade, peso, consumo (diário/semanal/mensal/anual), vacinas, previsão produtiva e
+          resultado financeiro — tudo calculado automaticamente
+        </div>
         {lotes.length === 0 ? (
           <p className="mono" style={{ fontSize: 12, color: "var(--ink-soft)" }}>
             Nenhum lote adicionado ainda.
           </p>
         ) : (
           <>
-            <table className="plantel">
-              <thead>
-                <tr>
-                  <th>Lote</th>
-                  <th>Qtd.</th>
-                  <th>Consumo/dia</th>
-                  <th>Consumo/mês</th>
-                  <th>Produção</th>
-                  <th>Custo ração/mês</th>
-                  <th>Receita/mês</th>
-                  <th>Lucro/mês</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {linhas.map((l) => (
-                  <tr key={l.lote.id}>
-                    <td>
-                      <span
-                        className={`tag-pill ${l.lote.animal === "poultry" ? "poultry" : "swine"}`}
-                      >
+            <div className="lote-cards">
+              {linhas.map((l) => (
+                <div key={l.lote.id} className="lote-card">
+                  <div className="lote-head">
+                    <div>
+                      <span className={`tag-pill ${l.lote.animal === "poultry" ? "poultry" : "swine"}`}>
                         {l.lote.animal === "poultry" ? "Aves" : "Suínos"}
                       </span>{" "}
-                      {l.phase.label}
-                    </td>
-                    <td className="mono">{l.lote.qtd}</td>
-                    <td className="mono">{l.consumoDia.toFixed(1)} kg</td>
-                    <td className="mono">{l.consumoMes.toFixed(0)} kg</td>
-                    <td className="mono">{l.producaoLabel}</td>
-                    <td className="mono">{brl(l.custoMes)}</td>
-                    <td className="mono">{brl(l.receitaMes)}</td>
-                    <td className={`mono ${l.lucro >= 0 ? "profit-pos" : "profit-neg"}`}>
-                      {brl(l.lucro)}
-                    </td>
-                    <td>
-                      <button
-                        className="btn danger small"
-                        onClick={() => setLotes((ls) => ls.filter((x) => x.id !== l.lote.id))}
-                      >
-                        Remover
+                      <strong>{l.lote.nome}</strong> · {l.phase.label}
+                    </div>
+                    <button
+                      className="btn danger small"
+                      onClick={() => setLotes((ls) => ls.filter((x) => x.id !== l.lote.id))}
+                    >Remover</button>
+                  </div>
+
+                  <div className="lote-grid">
+                    <div><span>Animais vivos</span><b>{l.qtdAtual} / {l.lote.qtd}</b></div>
+                    <div><span>Idade</span><b>{l.idadeDias} dias</b></div>
+                    <div><span>Peso atual (est.)</span><b>{l.pesoAtual.toFixed(2)} kg</b></div>
+                    <div><span>Peso final previsto</span><b>{l.lote.pesoAlvo.toFixed(2)} kg</b></div>
+                    <div><span>Ganho de peso</span><b>
+                      {l.phase.producaoTipo === "ganho" && l.phase.producao
+                        ? `${l.phase.producao.toFixed(2)} kg/dia/animal`
+                        : l.lote.animal === "poultry"
+                          ? `${((l.lote.pesoAlvo - l.lote.pesoInicial) / 140 * 1000).toFixed(0)} g/dia`
+                          : "—"}
+                    </b></div>
+                    <div><span>Mortalidade média</span><b>{l.lote.mortalidadePct.toFixed(1)}%</b></div>
+                    <div><span>Produção</span><b>{l.producaoLabel}</b></div>
+                    <div><span>Previsão produtiva</span><b>{l.previsaoProdutiva}</b></div>
+                    <div><span>Consumo diário</span><b>{l.consumoDia.toFixed(1)} kg</b></div>
+                    <div><span>Consumo semanal</span><b>{l.consumoSemana.toFixed(0)} kg</b></div>
+                    <div><span>Consumo mensal</span><b>{l.consumoMes.toFixed(0)} kg</b></div>
+                    <div><span>Consumo anual</span><b>{l.consumoAno.toFixed(0)} kg</b></div>
+                    <div><span>Ração total do ciclo</span><b>{l.racaoTotalCiclo.toFixed(0)} kg</b></div>
+                    <div><span>Dias restantes ciclo</span><b>{l.diasRestantes} dias</b></div>
+                    <div><span>Custo ração/mês</span><b>{brl(l.custoMes)}</b></div>
+                    <div><span>Receita/mês</span><b>{brl(l.receitaMes)}</b></div>
+                    <div><span>Lucro/mês</span>
+                      <b className={l.lucro >= 0 ? "profit-pos" : "profit-neg"}>{brl(l.lucro)}</b>
+                    </div>
+                    <div><span>Próxima fase</span><b>
+                      {l.proximaFase ? l.proximaFase.label : "Ciclo final"}
+                    </b></div>
+                    <div><span>Próxima vacina</span><b>
+                      {l.proxVac
+                        ? `${l.proxVac.nome} · ${fmtDate(l.proxVac.data)}`
+                        : "Todas aplicadas"}
+                    </b></div>
+                  </div>
+
+                  <div className="lote-actions">
+                    {l.proximaFase && (
+                      <button className="btn small" onClick={() => avancarFase(l.lote.id)}>
+                        Avançar para: {l.proximaFase.label}
                       </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    )}
+                  </div>
+
+                  <details className="lote-vacinas">
+                    <summary>Calendário de vacinas ({l.lote.vacinas.filter((v) => v.aplicadaEm).length}/{l.lote.vacinas.length})</summary>
+                    <ul>
+                      {l.lote.vacinas.map((v) => {
+                        const dataPrev = new Date(new Date(l.lote.dataEntrada).getTime() + v.diaIdeal * 86_400_000);
+                        return (
+                          <li key={v.id}>
+                            <label>
+                              <input type="checkbox" checked={!!v.aplicadaEm}
+                                onChange={() => toggleVacina(l.lote.id, v.id)} />
+                              <span>{v.nome}</span>
+                              <em>· ideal: {fmtDate(dataPrev)} (dia {v.diaIdeal})</em>
+                              {v.aplicadaEm && <b> ✓ aplicada {fmtDate(new Date(v.aplicadaEm))}</b>}
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </details>
+                </div>
+              ))}
+            </div>
 
             <div className="summary-grid">
               <div className="summary-card">
-                <div className="lbl">Animais</div>
+                <div className="lbl">Animais vivos</div>
                 <div className="val">{tot.animais}</div>
+              </div>
+              <div className="summary-card">
+                <div className="lbl">Ração/mês (plantel)</div>
+                <div className="val">{tot.consumoMes.toFixed(0)} kg</div>
               </div>
               <div className="summary-card">
                 <div className="lbl">Custo ração/mês</div>
