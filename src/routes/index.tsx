@@ -1448,6 +1448,10 @@ function PlantelPanel({
     l: (typeof linhas)[number],
     kind: "pdf" | "xlsx" | "share" | "print",
   ) {
+    if (trial && !trialR.increment()) {
+      alert(`Modo TESTE: limite de ${TRIAL_MAX_RELATORIOS} relatórios atingido. Assine (R$ 97, vitalício) para gerar relatórios ilimitados.`);
+      return;
+    }
     const key = `${l.lote.id}:${kind}`;
     setBusy(key);
     try {
@@ -1471,6 +1475,10 @@ function PlantelPanel({
   }
 
   async function plantelAction(kind: "pdf" | "xlsx" | "share" | "print") {
+    if (trial && !trialR.increment()) {
+      alert(`Modo TESTE: limite de ${TRIAL_MAX_RELATORIOS} relatórios atingido. Assine (R$ 97, vitalício) para gerar relatórios ilimitados.`);
+      return;
+    }
     const key = `plantel:${kind}`;
     setBusy(key);
     try {
