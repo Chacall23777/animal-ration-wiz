@@ -1284,6 +1284,10 @@ function PlantelPanel({
   const [pesoAlvo, setPesoAlvo] = useState(1.8);
   const [mortalidadePct, setMortalidadePct] = useState(3);
   const { lotes } = useLotesStore();
+  const trialR = useTrialReports(session);
+  const trial = trialR.trial;
+  const trialAnimaisAtuais = lotes.reduce((acc, l) => acc + (l.qtd || 0), 0);
+  const trialAnimaisRestantes = Math.max(0, TRIAL_MAX_ANIMAIS - trialAnimaisAtuais);
 
   const phases = PHASES[animal];
 
