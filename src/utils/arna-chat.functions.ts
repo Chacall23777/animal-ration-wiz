@@ -15,6 +15,7 @@ type ChatInput = {
   messages: ArnaChatMsg[];
   memory?: ArnaMemory;
   pro?: boolean;
+  clientId?: string;
 };
 
 type ChatResult = { reply: string } | { error: string; code?: number };
@@ -61,6 +62,9 @@ export const arnaChat = createServerFn({ method: "POST" })
     const key = process.env.LOVABLE_API_KEY;
     if (!key) return { error: "LOVABLE_API_KEY não configurada." };
 
+    const lastUser = [...data.messages].reverse().find((m) => m.role === "user")?.content ?? "";
+    const startedAt = Date.now();
+
     const body = {
       model: "google/gemini-3.6-flash",
       messages: [
@@ -80,21 +84,82 @@ export const arnaChat = createServerFn({ method: "POST" })
       });
 
       if (res.status === 429) {
+        await logAudit({ clientId: data.clientId, pro: !!data.pro, question: lastUser, status: "rate_limited", durationMs: Date.now() - startedAt });
         return { error: "Muitas requisições. Aguarde um instante e tente novamente.", code: 429 };
       }
       if (res.status === 402) {
+        await logAudit({ clientId: data.clientId, pro: !!data.pro, question: lastUser, status: "credits_exhausted", durationMs: Date.now() - startedAt });
         return { error: "Créditos de IA esgotados na workspace. Recarregue em Configurações → Planos e créditos.", code: 402 };
       }
       if (!res.ok) {
         const txt = await res.text().catch(() => "");
+        await logAudit({ clientId: data.clientId, pro: !!data.pro, question: lastUser, status: `http_${res.status}`, errorSnippet: txt.slice(0, 200), durationMs: Date.now() - startedAt });
         return { error: `Falha na IA (${res.status}): ${txt.slice(0, 200)}` };
       }
 
       const json = await res.json();
       const reply: string = json?.choices?.[0]?.message?.content ?? "";
-      if (!reply) return { error: "Resposta vazia da IA." };
+      if (!reply) {
+        await logAudit({ clientId: data.clientId, pro: !!data.pro, question: lastUser, status: "empty_reply", durationMs: Date.now() - startedAt });
+        return { error: "Resposta vazia da IA." };
+      }
+      const usage = json?.usage;
+      await logAudit({
+        clientId: data.clientId,
+        pro: !!data.pro,
+        question: lastUser,
+        reply,
+        memory: data.memory,
+        status: "ok",
+        durationMs: Date.now() - startedAt,
+        model: body.model,
+        promptTokens: usage?.prompt_tokens,
+        completionTokens: usage?.completion_tokens,
+      });
       return { reply };
     } catch (err) {
+      await logAudit({ clientId: data.clientId, pro: !!data.pro, question: lastUser, status: "exception", errorSnippet: err instanceof Error ? err.message : String(err), durationMs: Date.now() - startedAt });
       return { error: err instanceof Error ? err.message : "Erro desconhecido." };
     }
   });
+
+async function logAudit(entry: {
+  clientId?: string;
+  pro: boolean;
+  question: string;
+  reply?: string;
+  memory?: ArnaMemory;
+  status: string;
+  durationMs: number;
+  model?: string;
+  promptTokens?: number;
+  completionTokens?: number;
+  errorSnippet?: string;
+}): Promise<void> {
+  try {
+    const url = process.env.SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !serviceKey) return;
+    const { createClient } = await import("@supabase/supabase-js");
+    const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
+    await admin.from("audit_logs").insert({
+      client_id: entry.clientId ?? null,
+      action: "arna_chat",
+      resource: entry.pro ? "arna_ai_pro" : "arna_ai",
+      metadata: {
+        status: entry.status,
+        model: entry.model,
+        pro: entry.pro,
+        question: entry.question,
+        reply: entry.reply,
+        memory: entry.memory ?? null,
+        prompt_tokens: entry.promptTokens ?? null,
+        completion_tokens: entry.completionTokens ?? null,
+        duration_ms: entry.durationMs,
+        error: entry.errorSnippet ?? null,
+      },
+    });
+  } catch (err) {
+    console.error("[audit_logs] insert failed", err);
+  }
+}
