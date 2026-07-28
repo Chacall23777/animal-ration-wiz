@@ -39,6 +39,7 @@ import {
   useLotesStore,
   setLotes,
   setEstoque,
+  setLotesScope,
   type Lote,
   type Vacina,
 } from "@/lib/lotes-store";
@@ -46,6 +47,7 @@ import { SPECIES, SOON_SPECIES } from "@/lib/species";
 import {
   useFinanceStore,
   setTransacoes,
+  setFinanceScope,
   CATEGORIAS,
   type TxCategory,
 } from "@/lib/finance-store";
@@ -231,6 +233,11 @@ function AguiarAppInner({
       setShowOnboarding(true);
     }
   }, [propsQ.isSuccess, propsQ.data]);
+
+  useEffect(() => {
+    setLotesScope(active?.id ?? null);
+    setFinanceScope(active?.id ?? null);
+  }, [active?.id]);
 
   if (!user) return null;
 
