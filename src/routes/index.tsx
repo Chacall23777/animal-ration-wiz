@@ -202,8 +202,49 @@ function AguiarApp() {
 
   const acctLabel = session.user.email?.split("@")[0] ?? "Conta";
 
+  return <AguiarAppInner session={session} acctLabel={acctLabel} theme={theme} setTheme={setTheme} tab={tab} setTab={setTab} />;
+}
+
+function AguiarAppInner({
+  session,
+  acctLabel,
+  theme,
+  setTheme,
+  tab,
+  setTab,
+}: {
+  session: ReturnType<typeof useSession>;
+  acctLabel: string;
+  theme: "light" | "dark";
+  setTheme: (t: "light" | "dark") => void;
+  tab: TabKey;
+  setTab: (t: TabKey) => void;
+}) {
+  const propsQ = useProperties(session.user!.id);
+  const { active, select } = useActiveProperty(propsQ.data);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showNewProperty, setShowNewProperty] = useState(false);
+
+  useEffect(() => {
+    if (propsQ.isSuccess && (propsQ.data?.length ?? 0) === 0) {
+      setShowOnboarding(true);
+    }
+  }, [propsQ.isSuccess, propsQ.data]);
+
   return (
     <div className="wrap">
+      {showOnboarding && session.user && (
+        <PropertyOnboarding
+          user={session.user}
+          onDone={() => setShowOnboarding(false)}
+        />
+      )}
+      {showNewProperty && session.user && (
+        <PropertyOnboarding
+          user={session.user}
+          onDone={() => setShowNewProperty(false)}
+        />
+      )}
       {/* MASTHEAD */}
       <header className="masthead">
         <div className="brand">
@@ -218,6 +259,14 @@ function AguiarApp() {
           style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}
         >
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {propsQ.data && propsQ.data.length > 0 && (
+              <PropertySwitcher
+                properties={propsQ.data}
+                active={active}
+                onSelect={select}
+                onCreate={() => setShowNewProperty(true)}
+              />
+            )}
             <button
               className="theme-toggle"
               aria-label="Alternar modo claro/escuro"
@@ -231,7 +280,11 @@ function AguiarApp() {
               {acctLabel}
             </button>
           </div>
-          <div>Calculadora · Plantel · 1 kg a 100 t</div>
+          <div>
+            {active
+              ? `${active.name}${active.city ? " · " + active.city : ""}${active.state ? "/" + active.state : ""}`
+              : "Calculadora · Plantel · 1 kg a 100 t"}
+          </div>
         </div>
       </header>
 
