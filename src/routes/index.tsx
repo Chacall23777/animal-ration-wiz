@@ -293,7 +293,14 @@ function AguiarApp() {
 /* ===================== TELA DE ASSINATURA (paywall) ===================== */
 
 /* ===================== DASHBOARD (INÍCIO) ===================== */
-type TabKey = "inicio" | "calc" | "plantel" | "chat" | "conta";
+type TabKey =
+  | "inicio"
+  | "calc"
+  | "plantel"
+  | "financeiro"
+  | "sanitario"
+  | "chat"
+  | "conta";
 
 type Alerta = {
   id: string;
