@@ -188,11 +188,13 @@ table.plantel tr:hover td{background:rgba(217,164,65,0.06);}
 /* ===== Mobile ===== */
 @media (max-width:640px){
   .wrap{padding:16px 12px 80px;}
-  .masthead{padding-bottom:12px;margin-bottom:16px;gap:10px;}
-  .brand{gap:10px;flex:1;min-width:0;}
+  .masthead{padding-bottom:12px;margin-bottom:16px;gap:12px;}
+  .brand{gap:10px;flex:1 1 100%;min-width:0;}
+  .meta{flex:1 1 100%;align-items:stretch !important;}
+  .meta > div:first-child{justify-content:flex-end;flex-wrap:wrap;}
   .brand h1{font-size:22px;}
   .brand .tag{font-size:10px;letter-spacing:1px;}
-  .meta{font-size:10px;align-items:flex-end;}
+  .meta{font-size:10px;}
   .meta > div:last-child{display:none;}
   .acct-badge{font-size:10px;padding:5px 10px;}
   .tabs{gap:6px;margin-bottom:16px;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;padding-bottom:4px;}
