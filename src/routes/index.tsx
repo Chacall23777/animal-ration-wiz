@@ -1267,10 +1267,12 @@ function daysBetween(a: Date, b: Date) {
 function PlantelPanel({
   produtor = "",
   email,
+  session,
 }: {
   produtor?: string;
   email?: string;
-} = {}) {
+  session: ReturnType<typeof useSession>;
+}) {
   const [precos, setPrecos] = useState({ milho: 1.4, soja: 2.2, nucleo: 8.5, calcario: 0.6 });
   const [animal, setAnimal] = useState<AnimalKey>("poultry");
   const [phaseId, setPhaseId] = useState(PHASES.poultry[4].id);
