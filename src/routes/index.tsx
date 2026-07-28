@@ -2064,12 +2064,21 @@ function ContaPanel() {
     mrrBRL: number;
     chatInteractions: number;
   } | null>(null);
+  const [allUsers, setAllUsers] = useState<Array<{
+    id: string; email: string; full_name: string | null; created_at: string;
+    lifetime: boolean; isAdmin: boolean; subStatus: string | null;
+    priceId: string | null; periodEnd: string | null; environment: string | null;
+    trialing: boolean; trialDaysLeft: number | null;
+  }>>([]);
+  const [userFilter, setUserFilter] = useState<"all" | "trial" | "paid" | "admin" | "blocked">("all");
+  const [inviteAdminEmail, setInviteAdminEmail] = useState("");
 
   async function loadSubs() {
     try {
-      const [rows, s] = await Promise.all([listSubscribers(), getAdminStats()]);
+      const [rows, s, users] = await Promise.all([listSubscribers(), getAdminStats(), listAllUsers()]);
       setSubscribers(rows as typeof subscribers);
       setStats(s);
+      setAllUsers(users as typeof allUsers);
     } catch (e) {
       setAdminErr(e instanceof Error ? e.message : String(e));
     }
@@ -2106,6 +2115,35 @@ function ContaPanel() {
     } finally {
       setAdminBusy(false);
     }
+  }
+
+  async function doToggleAdmin(email: string, makeAdmin: boolean) {
+    const verb = makeAdmin ? "Conceder admin a" : "Remover admin de";
+    if (!confirm(`${verb} ${email}?`)) return;
+    setAdminBusy(true); setAdminErr("");
+    try { await setAdminRole({ data: { email, makeAdmin } }); await loadSubs(); }
+    catch (e) { setAdminErr(e instanceof Error ? e.message : String(e)); }
+    finally { setAdminBusy(false); }
+  }
+
+  async function doToggleLifetime(email: string, enable: boolean) {
+    const verb = enable ? "Conceder acesso vitalício a" : "Remover acesso vitalício de";
+    if (!confirm(`${verb} ${email}?`)) return;
+    setAdminBusy(true); setAdminErr("");
+    try { await grantLifetime({ data: { email, enable } }); await loadSubs(); }
+    catch (e) { setAdminErr(e instanceof Error ? e.message : String(e)); }
+    finally { setAdminBusy(false); }
+  }
+
+  async function doInviteAdmin() {
+    if (!inviteAdminEmail) return;
+    setAdminBusy(true); setAdminErr("");
+    try {
+      await setAdminRole({ data: { email: inviteAdminEmail.trim().toLowerCase(), makeAdmin: true } });
+      setInviteAdminEmail("");
+      await loadSubs();
+    } catch (e) { setAdminErr(e instanceof Error ? e.message : String(e)); }
+    finally { setAdminBusy(false); }
   }
 
   async function signOut() {
