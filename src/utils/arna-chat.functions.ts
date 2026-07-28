@@ -43,6 +43,8 @@ type ChatResult = { reply: string } | { error: string; code?: number };
 function memoryBlock(m?: ArnaMemory): string {
   if (!m) return "Nenhuma memória salva sobre o usuário ainda.";
   const rows: string[] = [];
+  if (m.userName) rows.push(`- Nome do produtor: ${m.userName}`);
+  if (m.userEmail) rows.push(`- E-mail: ${m.userEmail}`);
   if (m.species) rows.push(`- Espécie(s) do produtor: ${m.species}`);
   if (m.herdSize) rows.push(`- Tamanho do plantel: ${m.herdSize}`);
   if (m.avgWeight) rows.push(`- Peso médio / fase: ${m.avgWeight}`);
