@@ -1944,6 +1944,7 @@ function saveLoteNotes(n: Record<string, string>) {
 }
 
 function ChatPanel() {
+  const session = useSession();
   const initialMsgs: Msg[] = [
     {
       who: "system-note",
@@ -2039,6 +2040,11 @@ function ChatPanel() {
       ...memory,
       lotes: loteContexts,
       focusLoteId: focusLoteId || undefined,
+      userName:
+        memory.userName ||
+        (session.user?.user_metadata?.full_name as string | undefined) ||
+        (session.user?.email ? session.user.email.split("@")[0] : undefined),
+      userEmail: session.user?.email ?? undefined,
     };
 
     try {
