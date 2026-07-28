@@ -51,22 +51,21 @@ export const grantAccess = createServerFn({ method: "POST" })
       .maybeSingle();
     if (pErr) throw pErr;
     if (!prof) {
-      // Convida o usuário via Auth Admin. O trigger handle_new_user cria o profile.
-      const { data: invited, error: inviteErr } =
-        await supabaseAdmin.auth.admin.inviteUserByEmail(email);
-      if (inviteErr) {
-        // Fallback: cria o usuário direto se o convite falhar (ex.: e-mail já existe em auth.users).
-        const { data: created, error: createErr } =
-          await supabaseAdmin.auth.admin.createUser({ email, email_confirm: true });
-        if (createErr) throw new Error(`Não foi possível cadastrar ${email}: ${inviteErr.message}`);
-        prof = { id: created.user!.id } as { id: string };
-      } else {
-        prof = { id: invited.user!.id } as { id: string };
-      }
-      // Garante o profile mesmo que o trigger não tenha rodado ainda.
-      await supabaseAdmin
-        .from("profiles")
-        .upsert({ id: prof.id as string, email }, { onConflict: "id" });
+      // E-mail ainda não tem conta: pré-aprovamos. Quando o usuário se cadastrar
+      // pelo /auth com esse e-mail, o trigger handle_new_user aplica o acesso.
+      const { error: pendErr } = await supabaseAdmin.from("pending_access").upsert(
+        {
+          email,
+          days: data.days,
+          lifetime: false,
+          granted_by: context.userId,
+          used_at: null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "email" },
+      );
+      if (pendErr) throw pendErr;
+      return { ok: true, pending: true, until: new Date(Date.now() + data.days * 86400_000).toISOString() };
     }
     const until = new Date(Date.now() + data.days * 86400_000).toISOString();
     const manualId = `manual_${prof.id as string}`;
@@ -83,7 +82,7 @@ export const grantAccess = createServerFn({ method: "POST" })
       { onConflict: "stripe_subscription_id" },
     );
     if (error) throw error;
-    return { ok: true, until };
+    return { ok: true, pending: false, until };
   });
 
 export const revokeAccess = createServerFn({ method: "POST" })
@@ -270,9 +269,18 @@ export const grantLifetime = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const email = data.email.toLowerCase();
     const { data: prof } = await supabaseAdmin
-      .from("profiles").select("id").eq("email", data.email.toLowerCase()).maybeSingle();
-    if (!prof) throw new Error("Usuário não encontrado.");
+      .from("profiles").select("id").eq("email", email).maybeSingle();
+    if (!prof) {
+      // Pré-aprova como vitalício para quando o usuário se cadastrar.
+      const { error: pErr } = await supabaseAdmin.from("pending_access").upsert(
+        { email, days: 36500, lifetime: data.enable, granted_by: context.userId, used_at: null, updated_at: new Date().toISOString() },
+        { onConflict: "email" },
+      );
+      if (pErr) throw pErr;
+      return { ok: true, pending: true };
+    }
     const { error } = await supabaseAdmin.from("profiles").update({
       lifetime_access: data.enable,
       lifetime_granted_at: data.enable ? new Date().toISOString() : null,
