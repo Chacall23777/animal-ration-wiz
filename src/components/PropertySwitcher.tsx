@@ -58,12 +58,17 @@ export function PropertySwitcher({ properties, active, onSelect, onCreate }: Pro
         .ps-placeholder{color:#fff}
         .ps-name{font-weight:700;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .ps-caret{opacity:.7}
-        .ps-menu{position:absolute;right:0;top:calc(100% + 6px);min-width:240px;background:var(--surface,#fff);color:var(--fg,#111);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.2);padding:6px;z-index:50;display:flex;flex-direction:column;gap:2px}
-        .ps-item{text-align:left;padding:8px 10px;border-radius:8px;border:0;background:transparent;color:inherit;cursor:pointer;display:flex;flex-direction:column}
+        .ps-menu{position:absolute;right:0;top:calc(100% + 6px);min-width:260px;max-width:calc(100vw - 24px);background:var(--surface,#fff);color:var(--fg,#111);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.2);padding:6px;z-index:50;display:flex;flex-direction:column;gap:2px}
+        .ps-item{text-align:left;padding:10px 12px;border-radius:8px;border:0;background:transparent;color:inherit;cursor:pointer;display:flex;flex-direction:column;white-space:normal;word-break:break-word}
         .ps-item:hover{background:rgba(0,0,0,.06)}
         .ps-item.on{background:rgba(46,125,50,.12);font-weight:700}
         .ps-item small{opacity:.6;font-size:.75rem}
         .ps-add{color:var(--brand,#2e7d32);font-weight:700;border-top:1px solid rgba(0,0,0,.08);border-radius:0 0 8px 8px;margin-top:4px}
+        @media (max-width:520px){
+          .ps-menu{position:fixed;left:12px;right:12px;top:auto;bottom:12px;min-width:0;max-width:none;width:auto;padding:8px;border-radius:16px;box-shadow:0 -8px 30px rgba(0,0,0,.35)}
+          .ps-item{padding:12px 14px;font-size:1rem}
+          .ps-name{max-width:120px}
+        }
       `}</style>
     </div>
   );
