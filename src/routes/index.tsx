@@ -1494,6 +1494,16 @@ function PlantelPanel({
   }
 
   function addLote() {
+    if (trial) {
+      if (lotes.length >= TRIAL_MAX_LOTES) {
+        alert(`Modo TESTE: máximo de ${TRIAL_MAX_LOTES} lotes. Assine (R$ 97, vitalício) para cadastrar lotes ilimitados.`);
+        return;
+      }
+      if (trialAnimaisAtuais + qtd > TRIAL_MAX_ANIMAIS) {
+        alert(`Modo TESTE: máximo de ${TRIAL_MAX_ANIMAIS} animais somados (você já tem ${trialAnimaisAtuais}). Reduza a quantidade ou assine para acesso ilimitado.`);
+        return;
+      }
+    }
     const vacinas: Vacina[] = VACINAS_PADRAO[animal].map((v, i) => ({
       id: `v_${i}_${Math.random().toString(36).slice(2, 6)}`,
       nome: v.nome,
