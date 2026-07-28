@@ -173,3 +173,92 @@ export const finalizeCheckout = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true, periodEnd };
   });
+/* ============= Fase 3: Super Admin expandido ============= */
+
+export const listAllUsers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const [{ data: profs }, { data: roles }, { data: subs }] = await Promise.all([
+      supabaseAdmin.from("profiles").select("id, email, full_name, lifetime_access, created_at").order("created_at", { ascending: false }),
+      supabaseAdmin.from("user_roles").select("user_id, role"),
+      supabaseAdmin.from("subscriptions").select("user_id, status, price_id, current_period_end, environment, created_at").order("created_at", { ascending: false }),
+    ]);
+    const roleMap = new Map<string, string[]>();
+    for (const r of roles ?? []) {
+      const arr = roleMap.get(r.user_id as string) ?? [];
+      arr.push(r.role as string);
+      roleMap.set(r.user_id as string, arr);
+    }
+    const subMap = new Map<string, any>();
+    for (const s of subs ?? []) {
+      if (!subMap.has(s.user_id as string)) subMap.set(s.user_id as string, s);
+    }
+    const now = Date.now();
+    return (profs ?? []).map((p: any) => {
+      const sub = subMap.get(p.id);
+      const end = sub?.current_period_end ? new Date(sub.current_period_end).getTime() : null;
+      const trialing = sub?.status === "trialing" && end && end > now;
+      const daysLeft = trialing && end ? Math.ceil((end - now) / 86400000) : null;
+      return {
+        id: p.id as string,
+        email: p.email as string,
+        full_name: (p.full_name as string) ?? null,
+        created_at: p.created_at as string,
+        lifetime: !!p.lifetime_access,
+        isAdmin: (roleMap.get(p.id) ?? []).includes("admin"),
+        subStatus: sub?.status ?? null,
+        priceId: sub?.price_id ?? null,
+        periodEnd: sub?.current_period_end ?? null,
+        environment: sub?.environment ?? null,
+        trialing: !!trialing,
+        trialDaysLeft: daysLeft,
+      };
+    });
+  });
+
+export const setAdminRole = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { email: string; makeAdmin: boolean }) =>
+    z.object({ email: z.string().email(), makeAdmin: z.boolean() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: prof } = await supabaseAdmin
+      .from("profiles").select("id, email").eq("email", data.email.toLowerCase()).maybeSingle();
+    if (!prof) throw new Error("Usuário não encontrado. Peça para se cadastrar primeiro.");
+    if (data.makeAdmin) {
+      const { error } = await supabaseAdmin.from("user_roles").insert({ user_id: prof.id as string, role: "admin" });
+      if (error && !`${error.message}`.includes("duplicate")) throw error;
+    } else {
+      // Não permitir remover o próprio admin ou o dono vitalício
+      if ((prof.email as string)?.toLowerCase() === "rogeriopereira289@gmail.com") {
+        throw new Error("Não é possível remover o administrador vitalício.");
+      }
+      const { error } = await supabaseAdmin
+        .from("user_roles").delete().eq("user_id", prof.id as string).eq("role", "admin");
+      if (error) throw error;
+    }
+    return { ok: true };
+  });
+
+export const grantLifetime = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { email: string; enable: boolean }) =>
+    z.object({ email: z.string().email(), enable: z.boolean() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: prof } = await supabaseAdmin
+      .from("profiles").select("id").eq("email", data.email.toLowerCase()).maybeSingle();
+    if (!prof) throw new Error("Usuário não encontrado.");
+    const { error } = await supabaseAdmin.from("profiles").update({
+      lifetime_access: data.enable,
+      lifetime_granted_at: data.enable ? new Date().toISOString() : null,
+    }).eq("id", prof.id as string);
+    if (error) throw error;
+    return { ok: true };
+  });
