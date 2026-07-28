@@ -467,7 +467,13 @@ function daysBetween(a: Date, b: Date) {
   return Math.floor((b.getTime() - a.getTime()) / 86_400_000);
 }
 
-function PlantelPanel() {
+function PlantelPanel({
+  produtor = "",
+  email,
+}: {
+  produtor?: string;
+  email?: string;
+} = {}) {
   const [precos, setPrecos] = useState({ milho: 1.4, soja: 2.2, nucleo: 8.5, calcario: 0.6 });
   const [animal, setAnimal] = useState<AnimalKey>("poultry");
   const [phaseId, setPhaseId] = useState(PHASES.poultry[4].id);
@@ -579,6 +585,113 @@ function PlantelPanel() {
     }),
     { custo: 0, receita: 0, lucro: 0, animais: 0, consumoMes: 0 },
   );
+
+  const [obs, setObs] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+
+  function toReport(l: (typeof linhas)[number]): ReportLote {
+    return {
+      id: l.lote.id,
+      nome: l.lote.nome,
+      animal: l.lote.animal,
+      fase: l.phase.label,
+      proximaFase: l.proximaFase ? l.proximaFase.label : "Ciclo final",
+      dataEntrada: l.lote.dataEntrada,
+      qtdInicial: l.lote.qtd,
+      qtdAtual: l.qtdAtual,
+      idadeDias: l.idadeDias,
+      pesoInicial: l.lote.pesoInicial,
+      pesoAtual: l.pesoAtual,
+      pesoAlvo: l.lote.pesoAlvo,
+      ganhoLabel:
+        l.phase.producaoTipo === "ganho" && l.phase.producao
+          ? `${l.phase.producao.toFixed(2)} kg/dia/animal`
+          : l.lote.animal === "poultry"
+            ? `${((l.lote.pesoAlvo - l.lote.pesoInicial) / 140 * 1000).toFixed(0)} g/dia`
+            : "—",
+      mortalidadePct: l.lote.mortalidadePct,
+      consumoDia: l.consumoDia,
+      consumoSemana: l.consumoSemana,
+      consumoMes: l.consumoMes,
+      consumoAno: l.consumoAno,
+      racaoTotalCiclo: l.racaoTotalCiclo,
+      diasRestantes: l.diasRestantes,
+      producaoLabel: l.producaoLabel,
+      previsaoProdutiva: l.previsaoProdutiva,
+      custoMes: l.custoMes,
+      receitaMes: l.receitaMes,
+      lucroMes: l.lucro,
+      proximaVacina: l.proxVac
+        ? `${l.proxVac.nome} · ${fmtDate(l.proxVac.data)}`
+        : "Todas aplicadas",
+      vacinas: l.lote.vacinas.map((v) => ({
+        nome: v.nome,
+        diaIdeal: v.diaIdeal,
+        aplicadaEm: v.aplicadaEm,
+        dataPrevista: new Date(
+          new Date(l.lote.dataEntrada).getTime() + v.diaIdeal * 86_400_000,
+        ).toISOString(),
+      })),
+    };
+  }
+
+  function ctx(): ReportContext {
+    return {
+      produtor: produtor || (email ? email.split("@")[0] : "Produtor ARNA"),
+      email,
+      logoUrl: arnaLogo.url,
+      observacoes: obs,
+    };
+  }
+
+  async function loteAction(
+    l: (typeof linhas)[number],
+    kind: "pdf" | "xlsx" | "share" | "print",
+  ) {
+    const key = `${l.lote.id}:${kind}`;
+    setBusy(key);
+    try {
+      const r = toReport(l);
+      const c = ctx();
+      const base = `arna-lote-${slug(l.lote.nome)}`;
+      if (kind === "xlsx") {
+        downloadBlob(exportLoteXLSX(r, c), `${base}.xlsx`);
+      } else {
+        const blob = await exportLotePDF(r, c);
+        if (kind === "pdf") downloadBlob(blob, `${base}.pdf`);
+        else if (kind === "print") printPDFBlob(blob);
+        else await shareBlob(blob, `${base}.pdf`, `Relatório do lote ${l.lote.nome}`);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Não foi possível gerar o relatório.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function plantelAction(kind: "pdf" | "xlsx" | "share" | "print") {
+    const key = `plantel:${kind}`;
+    setBusy(key);
+    try {
+      const rs = linhas.map(toReport);
+      const c = ctx();
+      const base = `arna-plantel-${new Date().toISOString().slice(0, 10)}`;
+      if (kind === "xlsx") {
+        downloadBlob(exportPlantelXLSX(rs, c), `${base}.xlsx`);
+      } else {
+        const blob = await exportPlantelPDF(rs, c);
+        if (kind === "pdf") downloadBlob(blob, `${base}.pdf`);
+        else if (kind === "print") printPDFBlob(blob);
+        else await shareBlob(blob, `${base}.pdf`, "Relatório do plantel");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Não foi possível gerar o relatório.");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   function addLote() {
     const vacinas: Vacina[] = VACINAS_PADRAO[animal].map((v, i) => ({
