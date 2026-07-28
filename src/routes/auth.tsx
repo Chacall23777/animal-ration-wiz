@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { useServerFn } from "@tanstack/react-start";
-import { resolveAccess } from "@/lib/access.functions";
+import { resolveAccess, registerTrial } from "@/lib/access.functions";
 import arnaLogo from "@/assets/arna-logo.png.asset.json";
 import "./aguiar.css";
 
@@ -20,13 +20,15 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const navigate = useNavigate();
   // Sem cadastro público. Apenas: Entrar OU Iniciar teste gratuito (Stripe trial).
-  const [screen, setScreen] = useState<"choice" | "login" | "denied">("choice");
+  const [screen, setScreen] = useState<"choice" | "login" | "trial" | "denied">("choice");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
   const [err, setErr] = useState("");
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
   const resolve = useServerFn(resolveAccess);
+  const trialSignup = useServerFn(registerTrial);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -87,7 +89,26 @@ function AuthPage() {
   }
 
   function goToTrial() {
-    void navigate({ to: "/checkout", search: { plan: "aguiar_vitalicio" } });
+    setErr("");
+    setInfo("");
+    setScreen("trial");
+  }
+
+  async function submitTrial(e: React.FormEvent) {
+    e.preventDefault();
+    setErr("");
+    setInfo("");
+    setBusy(true);
+    try {
+      await trialSignup({ data: { email, password, full_name: fullName } });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      void navigate({ to: "/checkout", search: { plan: "aguiar_vitalicio" } });
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
