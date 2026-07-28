@@ -73,7 +73,9 @@ export const finalizeCheckout = createServerFn({ method: "POST" })
     if (session.payment_status !== "paid" && session.status !== "complete") {
       throw new Error("Pagamento não confirmado.");
     }
-    const sub = typeof session.subscription === "string" ? null : session.subscription;
+    const sub = (typeof session.subscription === "string" ? null : session.subscription) as
+      | (import("stripe").Stripe.Subscription & { current_period_end?: number })
+      | null;
     const priceLookup =
       (session.line_items?.data?.[0]?.price as { lookup_key?: string } | undefined)?.lookup_key ?? null;
     const periodEnd = sub?.current_period_end
