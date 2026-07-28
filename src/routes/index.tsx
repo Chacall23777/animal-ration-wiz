@@ -11,6 +11,15 @@ import {
   useProperties,
   useActiveProperty,
   useCreateProperty,
+  useUpdateProperty,
+  useProducerProfile,
+  useUpdateProducerProfile,
+  usePropertyPhotos,
+  useAddPropertyPhoto,
+  useSignedUrl,
+  uploadToBucket,
+  type Property,
+  type PropertyPhoto,
 } from "@/lib/properties-store";
 import { PropertyOnboarding } from "@/components/PropertyOnboarding";
 import { PropertySwitcher } from "@/components/PropertySwitcher";
@@ -180,7 +189,7 @@ function brl(n: number) {
 
 function AguiarApp() {
   const [tab, setTab] = useState<
-    "inicio" | "calc" | "plantel" | "financeiro" | "sanitario" | "chat" | "conta"
+    "inicio" | "calc" | "plantel" | "financeiro" | "sanitario" | "chat" | "galeria" | "conta"
   >("inicio");
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     if (typeof window === "undefined") return "light";
@@ -339,6 +348,12 @@ function AguiarAppInner({
           Consultor IA
         </button>
         <button
+          className={`tab-btn ${tab === "galeria" ? "active" : ""}`}
+          onClick={() => setTab("galeria")}
+        >
+          Galeria
+        </button>
+        <button
           className={`tab-btn ${tab === "conta" ? "active" : ""}`}
           onClick={() => setTab("conta")}
         >
@@ -371,8 +386,11 @@ function AguiarAppInner({
       <section className={`panel ${tab === "chat" ? "active" : ""}`}>
         <ChatPanel />
       </section>
+      <section className={`panel ${tab === "galeria" ? "active" : ""}`}>
+        <GaleriaPanel userId={user.id} activeProperty={active} />
+      </section>
       <section className={`panel ${tab === "conta" ? "active" : ""}`}>
-        <ContaPanel />
+        <ContaPanel activeProperty={active} />
       </section>
     </div>
   );
@@ -388,6 +406,7 @@ type TabKey =
   | "financeiro"
   | "sanitario"
   | "chat"
+  | "galeria"
   | "conta";
 
 type Alerta = {
@@ -1128,7 +1147,7 @@ function _PaywallScreenReal() {
         Calculadora de ração, gestão de plantel e consultor IA para avicultura e suinocultura. Entre
         com sua conta ou assine para liberar o app completo.
       </p>
-      <ContaPanel />
+      <ContaPanel activeProperty={null} />
     </div>
   );
 }
@@ -2283,7 +2302,7 @@ function MemoryEditor({ memory, onChange }: { memory: ArnaMemory; onChange: (m: 
 }
 
 /* ===================== CONTA ===================== */
-function ContaPanel() {
+function ContaPanel({ activeProperty }: { activeProperty: Property | null }) {
   const session = useSession();
   const user = session.user;
   const [grantEmail, setGrantEmail] = useState("");
@@ -2404,6 +2423,8 @@ function ContaPanel() {
 
   return (
     <>
+      <ProdutorProfileBox userId={user.id} />
+      {activeProperty && <PropriedadeEditBox property={activeProperty} />}
       <div className="box">
         <h4>Minha assinatura</h4>
         <div className="status-row"><span>Usuário</span><b>{user.email}</b></div>
@@ -2655,6 +2676,289 @@ function TrialBanner({
         Gerenciar assinatura
       </button>
     </div>
+  );
+}
+
+/* ===================== PERFIL DO PRODUTOR ===================== */
+function SignedImg({ path, alt, size = 64, radius = 8 }: { path: string | null | undefined; alt: string; size?: number; radius?: number }) {
+  const q = useSignedUrl(path);
+  const style: React.CSSProperties = {
+    width: size, height: size, borderRadius: radius, objectFit: "cover",
+    background: "var(--paper-2,#f2f2f2)", border: "1px solid var(--line,#ddd)",
+  };
+  if (!path) return <div style={{ ...style, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "var(--ink-soft,#888)" }}>sem foto</div>;
+  if (q.data) return <img src={q.data} alt={alt} style={style} />;
+  return <div style={style} />;
+}
+
+function ProdutorProfileBox({ userId }: { userId: string }) {
+  const profQ = useProducerProfile(userId);
+  const update = useUpdateProducerProfile(userId);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [instagram, setInstagram] = useState("");
+
+  useEffect(() => {
+    if (profQ.data) {
+      setFullName(profQ.data.full_name ?? "");
+      setWhatsapp(profQ.data.whatsapp ?? "");
+      setInstagram(profQ.data.instagram ?? "");
+    }
+  }, [profQ.data]);
+
+  async function onAvatar(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true); setErr("");
+    try {
+      const path = await uploadToBucket("avatars", userId, file);
+      await update.mutateAsync({ avatar_url: path });
+    } catch (e2) { setErr(e2 instanceof Error ? e2.message : String(e2)); }
+    finally { setBusy(false); e.target.value = ""; }
+  }
+
+  async function save() {
+    setBusy(true); setErr("");
+    try {
+      await update.mutateAsync({
+        full_name: fullName || null,
+        whatsapp: whatsapp || null,
+        instagram: instagram || null,
+      });
+    } catch (e2) { setErr(e2 instanceof Error ? e2.message : String(e2)); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="box">
+      <h4>Perfil do produtor</h4>
+      <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+        <SignedImg path={profQ.data?.avatar_url} alt="Avatar" size={72} radius={999} />
+        <div>
+          <label className="btn ghost" style={{ cursor: "pointer" }}>
+            {busy ? "Enviando…" : "Trocar foto"}
+            <input type="file" accept="image/*" onChange={onAvatar} style={{ display: "none" }} />
+          </label>
+          <div className="mono" style={{ fontSize: 11, color: "var(--ink-soft,#666)", marginTop: 4 }}>{profQ.data?.email}</div>
+        </div>
+      </div>
+      <div className="form-grid" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))" }}>
+        <div className="field">
+          <label>Nome completo</label>
+          <input value={fullName} onChange={(e) => setFullName(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>WhatsApp</label>
+          <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="(00) 00000-0000" />
+        </div>
+        <div className="field">
+          <label>Instagram</label>
+          <input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="@usuario" />
+        </div>
+      </div>
+      {err && <p className="disclaimer warn">{err}</p>}
+      <div style={{ marginTop: 10 }}>
+        <button className="btn" onClick={save} disabled={busy}>{busy ? "…" : "Salvar perfil"}</button>
+      </div>
+    </div>
+  );
+}
+
+/* ===================== EDITAR PROPRIEDADE ATIVA ===================== */
+function PropriedadeEditBox({ property }: { property: Property }) {
+  const update = useUpdateProperty(property.owner_id);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [form, setForm] = useState({
+    name: property.name,
+    city: property.city ?? "",
+    state: property.state ?? "",
+    description: property.description ?? "",
+    whatsapp: property.whatsapp ?? "",
+    instagram: property.instagram ?? "",
+  });
+
+  useEffect(() => {
+    setForm({
+      name: property.name,
+      city: property.city ?? "",
+      state: property.state ?? "",
+      description: property.description ?? "",
+      whatsapp: property.whatsapp ?? "",
+      instagram: property.instagram ?? "",
+    });
+  }, [property.id]);
+
+  async function uploadField(field: "photo_url" | "logo_url", file: File) {
+    setBusy(true); setErr("");
+    try {
+      const bucket = field === "logo_url" ? "property-logos" : "property-photos";
+      const path = await uploadToBucket(bucket, property.owner_id, file, [property.id, "cover"]);
+      await update.mutateAsync({ id: property.id, patch: { [field]: path } as Partial<Property> });
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  }
+
+  async function save() {
+    setBusy(true); setErr("");
+    try {
+      await update.mutateAsync({
+        id: property.id,
+        patch: {
+          name: form.name,
+          city: form.city || null,
+          state: form.state || null,
+          description: form.description || null,
+          whatsapp: form.whatsapp || null,
+          instagram: form.instagram || null,
+        },
+      });
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="box">
+      <h4>Propriedade — {property.name}</h4>
+      <div style={{ display: "flex", gap: 14, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ textAlign: "center" }}>
+          <SignedImg path={property.photo_url} alt="Foto" size={110} radius={10} />
+          <div style={{ marginTop: 6 }}>
+            <label className="btn ghost" style={{ cursor: "pointer", fontSize: 12, padding: "3px 10px" }}>
+              Trocar foto
+              <input type="file" accept="image/*" style={{ display: "none" }}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadField("photo_url", f); e.target.value = ""; }} />
+            </label>
+          </div>
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <SignedImg path={property.logo_url} alt="Logo" size={110} radius={10} />
+          <div style={{ marginTop: 6 }}>
+            <label className="btn ghost" style={{ cursor: "pointer", fontSize: 12, padding: "3px 10px" }}>
+              Trocar logo
+              <input type="file" accept="image/*" style={{ display: "none" }}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadField("logo_url", f); e.target.value = ""; }} />
+            </label>
+          </div>
+        </div>
+      </div>
+      <div className="form-grid" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))" }}>
+        <div className="field"><label>Nome</label><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+        <div className="field"><label>Cidade</label><input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
+        <div className="field"><label>UF</label><input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} maxLength={2} /></div>
+        <div className="field"><label>WhatsApp</label><input value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} /></div>
+        <div className="field"><label>Instagram</label><input value={form.instagram} onChange={(e) => setForm({ ...form, instagram: e.target.value })} /></div>
+        <div className="field" style={{ gridColumn: "1 / -1" }}>
+          <label>Descrição</label>
+          <textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+        </div>
+      </div>
+      {err && <p className="disclaimer warn">{err}</p>}
+      <div style={{ marginTop: 10 }}>
+        <button className="btn" onClick={save} disabled={busy}>{busy ? "…" : "Salvar propriedade"}</button>
+      </div>
+    </div>
+  );
+}
+
+/* ===================== GALERIA DE FOTOS ===================== */
+const PHOTO_CATEGORIES: Array<{ id: PropertyPhoto["category"]; label: string }> = [
+  { id: "propriedade", label: "Propriedade" },
+  { id: "lote", label: "Lote" },
+  { id: "animais", label: "Animais" },
+  { id: "galpao", label: "Galpão" },
+  { id: "aviario", label: "Aviário" },
+  { id: "pocilga", label: "Pocilga" },
+];
+
+function GaleriaPanel({ userId, activeProperty }: { userId: string; activeProperty: Property | null }) {
+  const propertyId = activeProperty?.id ?? null;
+  const photosQ = usePropertyPhotos(propertyId);
+  const add = useAddPropertyPhoto(userId);
+  const [category, setCategory] = useState<PropertyPhoto["category"]>("propriedade");
+  const [caption, setCaption] = useState("");
+  const [filter, setFilter] = useState<"all" | PropertyPhoto["category"]>("all");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  if (!activeProperty) {
+    return <div className="box"><p className="disclaimer">Cadastre ou selecione uma propriedade para começar a galeria.</p></div>;
+  }
+
+  async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setBusy(true); setErr("");
+    try {
+      for (const file of Array.from(files)) {
+        await add.mutateAsync({ propertyId: propertyId!, file, category, caption: caption || undefined });
+      }
+      setCaption("");
+    } catch (e2) { setErr(e2 instanceof Error ? e2.message : String(e2)); }
+    finally { setBusy(false); e.target.value = ""; }
+  }
+
+  const photos = (photosQ.data ?? []).filter((p) => filter === "all" || p.category === filter);
+
+  return (
+    <>
+      <div className="box">
+        <h4>Galeria — {activeProperty.name}</h4>
+        <div className="form-grid" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))" }}>
+          <div className="field">
+            <label>Categoria</label>
+            <select value={category} onChange={(e) => setCategory(e.target.value as PropertyPhoto["category"])}>
+              {PHOTO_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+            </select>
+          </div>
+          <div className="field" style={{ gridColumn: "span 2" }}>
+            <label>Legenda (opcional)</label>
+            <input value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Ex.: Aviário 2 · alojamento" />
+          </div>
+          <div className="field" style={{ alignSelf: "end" }}>
+            <label className="btn" style={{ cursor: "pointer", textAlign: "center" }}>
+              {busy ? "Enviando…" : "Enviar fotos"}
+              <input type="file" accept="image/*" multiple onChange={onPick} style={{ display: "none" }} />
+            </label>
+          </div>
+        </div>
+        {err && <p className="disclaimer warn">{err}</p>}
+      </div>
+
+      <div className="box">
+        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+          <h5 style={{ margin: 0 }}>{photos.length} foto(s)</h5>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {[{ id: "all" as const, label: "Todas" }, ...PHOTO_CATEGORIES].map((c) => (
+              <button key={c.id} className="btn ghost"
+                onClick={() => setFilter(c.id)}
+                style={{
+                  padding: "3px 10px", fontSize: 11,
+                  background: filter === c.id ? "var(--green,#2e5b3a)" : undefined,
+                  color: filter === c.id ? "#fff" : undefined,
+                  border: filter === c.id ? "1px solid var(--green,#2e5b3a)" : undefined,
+                }}>{c.label}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 10, marginTop: 12 }}>
+          {photos.map((p) => (
+            <div key={p.id} style={{ border: "1px solid var(--line,#ddd)", borderRadius: 10, overflow: "hidden", background: "var(--paper,#fff)" }}>
+              <SignedImg path={p.url} alt={p.caption ?? p.category} size={140} radius={0} />
+              <div style={{ padding: 6, fontSize: 11 }}>
+                <div style={{ fontWeight: 700, textTransform: "uppercase", fontSize: 10, color: "var(--ink-soft,#666)" }}>{p.category}</div>
+                {p.caption && <div>{p.caption}</div>}
+              </div>
+            </div>
+          ))}
+          {photos.length === 0 && (
+            <p className="mono" style={{ fontSize: 12, color: "var(--ink-soft)" }}>Nenhuma foto ainda.</p>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
 
