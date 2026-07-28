@@ -269,9 +269,18 @@ export const grantLifetime = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const email = data.email.toLowerCase();
     const { data: prof } = await supabaseAdmin
-      .from("profiles").select("id").eq("email", data.email.toLowerCase()).maybeSingle();
-    if (!prof) throw new Error("Usuário não encontrado.");
+      .from("profiles").select("id").eq("email", email).maybeSingle();
+    if (!prof) {
+      // Pré-aprova como vitalício para quando o usuário se cadastrar.
+      const { error: pErr } = await supabaseAdmin.from("pending_access").upsert(
+        { email, days: 36500, lifetime: data.enable, granted_by: context.userId, used_at: null, updated_at: new Date().toISOString() },
+        { onConflict: "email" },
+      );
+      if (pErr) throw pErr;
+      return { ok: true, pending: true };
+    }
     const { error } = await supabaseAdmin.from("profiles").update({
       lifetime_access: data.enable,
       lifetime_granted_at: data.enable ? new Date().toISOString() : null,
