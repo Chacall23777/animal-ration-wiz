@@ -200,20 +200,29 @@ function AuthPage() {
               {busy ? "…" : "Entrar"}
             </button>
           </form>
-          <p className="disclaimer" style={{ marginTop: 12, textAlign: "center" }}>
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setErr("");
-                setInfo("");
-                setPassword("");
-                setScreen("forgot");
-              }}
-            >
-              Esqueci minha senha
-            </a>
-          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setErr("");
+              setInfo("");
+              setPassword("");
+              setScreen("forgot");
+            }}
+            style={{
+              marginTop: 14,
+              width: "100%",
+              background: "transparent",
+              color: "#d4a72c",
+              border: "1px solid #d4a72c",
+              borderRadius: 8,
+              padding: "10px 14px",
+              fontWeight: 700,
+              fontSize: 15,
+              cursor: "pointer",
+            }}
+          >
+            Esqueci minha senha
+          </button>
           <p className="disclaimer" style={{ marginTop: 12 }}>
             <a href="#" onClick={(e) => { e.preventDefault(); setScreen("choice"); }}>← Voltar</a>
           </p>
