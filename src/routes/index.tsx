@@ -1381,6 +1381,7 @@ function PlantelPanel({
   const trial = trialR.trial;
   const trialAnimaisAtuais = lotes.reduce((acc, l) => acc + (l.qtd || 0), 0);
   const trialAnimaisRestantes = Math.max(0, TRIAL_MAX_ANIMAIS - trialAnimaisAtuais);
+  const photosQ = usePropertyPhotos(activeProperty?.id ?? null);
 
   const phases = PHASES[animal];
 
@@ -1528,13 +1529,42 @@ function PlantelPanel({
     };
   }
 
-  function ctx(): ReportContext {
-    return {
+  async function ctx(): Promise<ReportContext> {
+    const base: ReportContext = {
       produtor: produtor || (email ? email.split("@")[0] : "Produtor ARNA"),
       email,
       logoUrl: arnaLogo.url,
       observacoes: obs,
     };
+    if (activeProperty) {
+      const [coverUrl, propLogoUrl] = await Promise.all([
+        signPath(activeProperty.photo_url),
+        signPath(activeProperty.logo_url),
+      ]);
+      base.propriedade = {
+        nome: activeProperty.name,
+        cidade: activeProperty.city,
+        estado: activeProperty.state,
+        pais: activeProperty.country,
+        descricao: activeProperty.description,
+        whatsapp: activeProperty.whatsapp,
+        instagram: activeProperty.instagram,
+        coverUrl,
+        logoUrl: propLogoUrl,
+      };
+    }
+    const photos = photosQ.data ?? [];
+    if (photos.length) {
+      const signed = await Promise.all(
+        photos.slice(0, 18).map(async (p) => ({
+          url: (await signPath(p.url)) ?? "",
+          caption: p.caption,
+          category: p.category,
+        })),
+      );
+      base.fotos = signed.filter((p) => p.url);
+    }
+    return base;
   }
 
   async function loteAction(
