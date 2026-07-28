@@ -36,9 +36,13 @@ function CheckoutReturn() {
       <div style={{ maxWidth: 520, textAlign: "center" }}>
         {session_id ? (
           <>
-            <h1 style={{ marginBottom: 12 }}>Pagamento confirmado ✓</h1>
+            <h1 style={{ marginBottom: 12 }}>Tudo certo ✓</h1>
             <p style={{ color: "var(--ink-soft, #666)" }}>
-              Sua assinatura {plan === "aguiar_anual" ? "anual" : "mensal"} foi ativada.
+              {plan === "aguiar_vitalicio"
+                ? "Seus 7 dias gratuitos começaram. No 8º dia faremos uma única cobrança de R$ 97 e seu acesso passa a ser vitalício."
+                : plan === "aguiar_anual"
+                  ? "Sua assinatura anual foi ativada."
+                  : "Sua assinatura mensal foi ativada."}
               {granted ? " Acesso liberado." : err ? "" : " Confirmando…"}
             </p>
             {err && <p style={{ color: "crimson", fontSize: 13 }}>Erro ao registrar: {err}</p>}

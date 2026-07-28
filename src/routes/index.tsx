@@ -966,31 +966,37 @@ function ContaPanel() {
         <div className="status-row">
           <span>Status</span>
           <b style={{ color: ativo ? "var(--good)" : "var(--bad)" }}>
-            {session.isAdmin ? "Admin (vitalício)" : ativo ? "Ativa" : "Sem assinatura"}
+            {session.isAdmin
+              ? "Admin (vitalício)"
+              : session.lifetime
+                ? "Vitalício ✓"
+                : ativo
+                  ? "Ativa"
+                  : "Sem assinatura"}
           </b>
         </div>
         {validUntil && (
           <div className="status-row"><span>Válida até</span><b>{fmtDate(validUntil)}</b></div>
         )}
-        {!session.isAdmin && (
+        {!session.isAdmin && !session.lifetime && (
           <div className="plan-card">
-            <div className="plan-grid">
-              <div style={{ padding: 12, border: "1px solid var(--line, #ddd)", borderRadius: 8 }}>
-                <div className="plan-price">R$ 50 <span>/ mês</span></div>
-                <p style={{ margin: "6px 0 12px", fontSize: 13 }}>Cobrança mensal, cancele quando quiser.</p>
-                <Link to="/checkout" search={{ plan: "aguiar_mensal", email: user.email }} className="btn" style={{ display: "inline-block", textDecoration: "none" }}>
-                  Assinar mensal
-                </Link>
-              </div>
-              <div style={{ padding: 12, border: "2px solid var(--green, #2e5b3a)", borderRadius: 8, position: "relative" }}>
-                <span style={{ position: "absolute", top: -10, right: 10, background: "var(--green, #2e5b3a)", color: "white", fontSize: 11, padding: "2px 8px", borderRadius: 4 }}>-17%</span>
-                <div className="plan-price">R$ 500 <span>/ ano</span></div>
-                <p style={{ margin: "6px 0 12px", fontSize: 13 }}>Equivale a 2 meses grátis.</p>
-                <Link to="/checkout" search={{ plan: "aguiar_anual", email: user.email }} className="btn" style={{ display: "inline-block", textDecoration: "none" }}>
-                  Assinar anual
-                </Link>
-              </div>
+            <div style={{ padding: 16, border: "2px solid var(--green, #2e5b3a)", borderRadius: 12, position: "relative", textAlign: "center" }}>
+              <span style={{ position: "absolute", top: -10, right: 12, background: "var(--gold, #b58a3a)", color: "white", fontSize: 11, padding: "2px 8px", borderRadius: 4 }}>Pagamento único</span>
+              <div style={{ fontSize: 13, color: "var(--ink-soft, #666)", marginBottom: 6 }}>7 dias grátis, depois</div>
+              <div className="plan-price" style={{ fontSize: 32 }}>R$ 97 <span style={{ fontSize: 14 }}>uma única vez</span></div>
+              <p style={{ margin: "8px 0 14px", fontSize: 13, lineHeight: 1.45 }}>
+                Acesso <b>vitalício</b> ao ARNA — calculadora, plantel, consultor IA e todas as atualizações futuras.
+                Cobrança automática de R$ 97 no 8º dia caso não cancele.
+              </p>
+              <Link to="/checkout" search={{ plan: "aguiar_vitalicio", email: user.email }} className="btn" style={{ display: "inline-block", textDecoration: "none" }}>
+                Começar 7 dias grátis
+              </Link>
             </div>
+          </div>
+        )}
+        {session.lifetime && !session.isAdmin && (
+          <div style={{ marginTop: 8, padding: 10, background: "#e8f5e9", border: "1px solid #a5d6a7", borderRadius: 8, fontSize: 13, textAlign: "center" }}>
+            🎉 Você tem <b>acesso vitalício</b> ao ARNA. Todas as atualizações futuras estão incluídas.
           </div>
         )}
         <div style={{ marginTop: 14 }}>

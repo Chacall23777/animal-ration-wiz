@@ -116,6 +116,7 @@ export const getAdminStats = createServerFn({ method: "GET" })
           stripeActive++;
           if (s.price_id === "aguiar_mensal") mrrCents += 5000;
           else if (s.price_id === "aguiar_anual") mrrCents += Math.round(50000 / 12);
+          else if (s.price_id === "aguiar_vitalicio") mrrCents += 9700; // conta como receita única no mês
         }
       }
     }

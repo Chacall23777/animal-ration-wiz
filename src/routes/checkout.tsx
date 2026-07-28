@@ -39,8 +39,15 @@ function CheckoutPage() {
     });
   }, [navigate, email]);
 
-  const priceId = plan === "aguiar_anual" ? "aguiar_anual" : "aguiar_mensal";
-  const label = priceId === "aguiar_anual" ? "Anual — R$ 500/ano" : "Mensal — R$ 50/mês";
+  // Default to the lifetime plan. Legacy monthly/anual mantidos apenas para compatibilidade retroativa.
+  const priceId =
+    plan === "aguiar_anual" || plan === "aguiar_mensal" ? plan : "aguiar_vitalicio";
+  const label =
+    priceId === "aguiar_vitalicio"
+      ? "Acesso vitalício — 7 dias grátis, depois R$ 97 uma única vez"
+      : priceId === "aguiar_anual"
+        ? "Anual — R$ 500/ano"
+        : "Mensal — R$ 50/mês";
   const returnUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/checkout/return?plan=${priceId}&session_id={CHECKOUT_SESSION_ID}`;
 
   return (
@@ -48,9 +55,16 @@ function CheckoutPage() {
       <PaymentTestModeBanner />
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "24px 16px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <h2 style={{ margin: 0 }}>Assinar Aguiar — {label}</h2>
+          <h2 style={{ margin: 0, fontSize: 20 }}>Aguiar ARNA — {label}</h2>
           <Link to="/" style={{ color: "var(--ink-soft, #666)" }}>← Voltar</Link>
         </div>
+        {priceId === "aguiar_vitalicio" && (
+          <div style={{ padding: 12, marginBottom: 16, background: "#fff8e1", border: "1px solid #f0d97a", borderRadius: 8, fontSize: 14, lineHeight: 1.5 }}>
+            <b>Como funciona:</b> você cadastra um cartão válido e ganha 7 dias grátis para testar o app.
+            No 8º dia é feita uma <b>única cobrança de R$ 97,00</b> e seu acesso passa a ser <b>vitalício</b>,
+            com todas as atualizações incluídas. Você pode cancelar durante o período gratuito sem custo.
+          </div>
+        )}
         {ready && userId ? (
           <StripeEmbeddedCheckout priceId={priceId} customerEmail={userEmail} userId={userId} returnUrl={returnUrl} />
         ) : (

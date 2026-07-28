@@ -21,6 +21,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       if (!prices.data.length) throw new Error("Price not found");
       const stripePrice = prices.data[0];
       const isRecurring = stripePrice.type === "recurring";
+      const isLifetimeTrial = data.priceId === "aguiar_vitalicio";
 
       const session = await stripe.checkout.sessions.create({
         line_items: [{ price: stripePrice.id, quantity: 1 }],
@@ -30,8 +31,17 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         ...(data.customerEmail && { customer_email: data.customerEmail }),
         ...(data.userId && {
           metadata: { userId: data.userId },
-          ...(isRecurring && { subscription_data: { metadata: { userId: data.userId } } }),
+          ...(isRecurring && {
+            subscription_data: {
+              metadata: {
+                userId: data.userId,
+                ...(isLifetimeTrial && { plan: "aguiar_vitalicio", lifetime: "true" }),
+              },
+              ...(isLifetimeTrial && { trial_period_days: 7 }),
+            },
+          }),
         }),
+        ...(isLifetimeTrial && { payment_method_collection: "always" as const }),
       });
 
       return { clientSecret: session.client_secret ?? "" };
