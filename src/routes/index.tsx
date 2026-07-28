@@ -2064,7 +2064,8 @@ function ChatPanel() {
 function MemoryEditor({ memory, onChange }: { memory: ArnaMemory; onChange: (m: ArnaMemory) => void }) {
   const [m, setM] = useState<ArnaMemory>(memory);
   useEffect(() => { setM(memory); }, [memory]);
-  const field = (k: keyof ArnaMemory, label: string, placeholder: string) => (
+  type StringKey = "species" | "herdSize" | "avgWeight" | "objectives" | "ingredients" | "notes";
+  const field = (k: StringKey, label: string, placeholder: string) => (
     <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
       <span style={{ color: "var(--ink-soft, #666)" }}>{label}</span>
       <input
