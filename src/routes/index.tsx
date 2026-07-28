@@ -2246,20 +2246,106 @@ function ContaPanel() {
             </div>
           </div>
           {adminErr && <p className="disclaimer warn">{adminErr}</p>}
-          <div className="admin-list">
-            {subscribers.length === 0 ? (
-              <p className="mono" style={{ fontSize: 12, color: "var(--ink-soft)" }}>Nenhum assinante ainda.</p>
-            ) : (
-              subscribers.map((s) => (
-                <div key={s.email} className="admin-row">
-                  <span>{s.email} <span className="mono" style={{ fontSize: 10, color: "var(--ink-soft)", marginLeft: 6 }}>· {s.status}{s.price_id ? ` · ${s.price_id}` : ""}</span></span>
-                  <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <span className="mono">{s.current_period_end ? `até ${fmtDate(new Date(s.current_period_end))}` : "—"}</span>
-                    <button className="btn ghost" style={{ padding: "2px 8px", fontSize: 11 }} onClick={() => doRevoke(s.email)} disabled={adminBusy}>Revogar</button>
-                  </span>
-                </div>
-              ))
-            )}
+
+          <div style={{ marginTop: 16, borderTop: "1px solid var(--line,#ddd)", paddingTop: 12 }}>
+            <h5 style={{ margin: "0 0 8px" }}>Convidar administrador</h5>
+            <div className="form-grid admin-grant-grid">
+              <div className="field">
+                <label>E-mail (usuário já cadastrado)</label>
+                <input value={inviteAdminEmail} onChange={(e) => setInviteAdminEmail(e.target.value)} placeholder="admin@email.com" />
+              </div>
+              <div className="field" style={{ alignSelf: "end" }}>
+                <button className="btn" onClick={doInviteAdmin} disabled={adminBusy}>{adminBusy ? "…" : "Conceder admin"}</button>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+              <h5 style={{ margin: 0 }}>Todos os usuários ({allUsers.length})</h5>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {([
+                  ["all", "Todos"],
+                  ["trial", "Em teste"],
+                  ["paid", "Pagantes"],
+                  ["admin", "Admins"],
+                  ["blocked", "Sem acesso"],
+                ] as const).map(([k, l]) => (
+                  <button
+                    key={k}
+                    className={`btn ghost`}
+                    onClick={() => setUserFilter(k)}
+                    style={{
+                      padding: "3px 10px",
+                      fontSize: 11,
+                      background: userFilter === k ? "var(--green,#2e5b3a)" : undefined,
+                      color: userFilter === k ? "#fff" : undefined,
+                      border: userFilter === k ? "1px solid var(--green,#2e5b3a)" : undefined,
+                    }}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="admin-list" style={{ marginTop: 8 }}>
+              {allUsers
+                .filter((u) => {
+                  const now = Date.now();
+                  const active = u.isAdmin || u.lifetime || (u.subStatus && ["active","trialing","past_due"].includes(u.subStatus) && (!u.periodEnd || new Date(u.periodEnd).getTime() > now));
+                  if (userFilter === "trial") return u.trialing;
+                  if (userFilter === "admin") return u.isAdmin;
+                  if (userFilter === "paid") return !u.isAdmin && (u.lifetime || (u.subStatus === "active" && u.priceId && u.priceId !== "admin_grant"));
+                  if (userFilter === "blocked") return !active;
+                  return true;
+                })
+                .map((u) => {
+                  const badge = u.isAdmin
+                    ? { label: "ADMIN", color: "#7b1fa2" }
+                    : u.lifetime
+                      ? { label: "VITALÍCIO", color: "#2e7d32" }
+                      : u.trialing
+                        ? { label: `TESTE · ${u.trialDaysLeft}d`, color: u.trialDaysLeft != null && u.trialDaysLeft <= 3 ? "#c62828" : "#1565c0" }
+                        : u.subStatus === "active"
+                          ? { label: "ATIVO", color: "#2e7d32" }
+                          : u.subStatus === "canceled"
+                            ? { label: "CANCELADO", color: "#757575" }
+                            : { label: "SEM ACESSO", color: "#c62828" };
+                  return (
+                    <div key={u.id} className="admin-row" style={{ flexWrap: "wrap", gap: 6 }}>
+                      <span style={{ flex: 1, minWidth: 180 }}>
+                        {u.email}
+                        {u.full_name && <span style={{ color: "var(--ink-soft,#666)", marginLeft: 6, fontSize: 11 }}>({u.full_name})</span>}
+                        <span
+                          style={{
+                            marginLeft: 8, fontSize: 10, padding: "2px 6px", borderRadius: 4,
+                            background: badge.color, color: "#fff", fontWeight: 700, letterSpacing: 0.3,
+                          }}
+                        >{badge.label}</span>
+                        <span className="mono" style={{ marginLeft: 6, fontSize: 10, color: "var(--ink-soft,#666)" }}>
+                          {u.periodEnd ? `até ${fmtDate(new Date(u.periodEnd))}` : ""}
+                        </span>
+                      </span>
+                      <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        {!u.lifetime ? (
+                          <button className="btn ghost" style={{ padding: "2px 8px", fontSize: 11 }} disabled={adminBusy} onClick={() => doToggleLifetime(u.email, true)}>+ Vitalício</button>
+                        ) : (
+                          <button className="btn ghost" style={{ padding: "2px 8px", fontSize: 11 }} disabled={adminBusy} onClick={() => doToggleLifetime(u.email, false)}>− Vitalício</button>
+                        )}
+                        {!u.isAdmin ? (
+                          <button className="btn ghost" style={{ padding: "2px 8px", fontSize: 11 }} disabled={adminBusy} onClick={() => doToggleAdmin(u.email, true)}>+ Admin</button>
+                        ) : (
+                          <button className="btn ghost" style={{ padding: "2px 8px", fontSize: 11 }} disabled={adminBusy} onClick={() => doToggleAdmin(u.email, false)}>− Admin</button>
+                        )}
+                        <button className="btn ghost" style={{ padding: "2px 8px", fontSize: 11, color: "#c62828" }} disabled={adminBusy} onClick={() => doRevoke(u.email)}>Bloquear</button>
+                      </span>
+                    </div>
+                  );
+                })}
+              {allUsers.length === 0 && (
+                <p className="mono" style={{ fontSize: 12, color: "var(--ink-soft)" }}>Nenhum usuário cadastrado ainda.</p>
+              )}
+            </div>
           </div>
         </div>
       )}
