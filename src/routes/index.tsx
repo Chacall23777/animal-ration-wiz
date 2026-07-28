@@ -1,9 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import "./aguiar.css";
 import arnaLogo from "@/assets/arna-logo.png.asset.json";
 import { arnaChat, type ArnaMemory, type ArnaChatMsg } from "@/utils/arna-chat.functions";
+import { useSession } from "@/lib/session";
+import { supabase } from "@/integrations/supabase/client";
+import { listSubscribers, grantAccess } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/")({
   component: AguiarApp,
@@ -131,44 +134,18 @@ function brl(n: number) {
 
 function AguiarApp() {
   const [tab, setTab] = useState<"calc" | "plantel" | "chat" | "conta">("calc");
-  const [account, setAccount] = useState<{
-    email: string;
-    isAdmin: boolean;
-    validUntil: Date;
-  } | null>(() => {
-    if (typeof window === "undefined") return null;
-    try {
-      const raw = localStorage.getItem("aguiar_account");
-      if (!raw) return null;
-      const p = JSON.parse(raw);
-      return { email: p.email, isAdmin: !!p.isAdmin, validUntil: new Date(p.validUntil) };
-    } catch {
-      return null;
-    }
-  });
+  const navigate = useNavigate();
+  const session = useSession();
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (account) {
-      localStorage.setItem(
-        "aguiar_account",
-        JSON.stringify({ ...account, validUntil: account.validUntil.toISOString() }),
-      );
-    } else {
-      localStorage.removeItem("aguiar_account");
-    }
-  }, [account]);
+    if (!session.loading && !session.user) void navigate({ to: "/auth" });
+  }, [session.loading, session.user, navigate]);
 
-  const acctActive = !!account && account.validUntil > new Date();
-  const acctLabel = account ? account.email.split("@")[0] : "Visitante";
+  if (session.loading) return <div className="wrap"><p style={{ padding: 24 }}>Carregando…</p></div>;
+  if (!session.user) return null;
+  if (!session.active) return <PaywallScreen />;
 
-  // Enquanto a assinatura não está liberada, a tela principal mostra só a
-  // logo + as ilustrações + o formulário de entrar/assinar. O restante do
-  // app (calculadora, plantel, consultor IA) só aparece depois do pagamento
-  // confirmado (ou de liberação manual pelo administrador).
-  if (!acctActive) {
-    return <PaywallScreen account={account} setAccount={setAccount} />;
-  }
+  const acctLabel = session.user.email?.split("@")[0] ?? "Conta";
 
   return (
     <div className="wrap">
@@ -186,7 +163,7 @@ function AguiarApp() {
           style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}
         >
           <button className="acct-badge" onClick={() => setTab("conta")}>
-            <span className={`dot ${acctActive ? "" : "off"}`} />
+            <span className="dot" />
             {acctLabel}
           </button>
           <div>Calculadora · Plantel · 1 kg a 100 t</div>
@@ -231,20 +208,14 @@ function AguiarApp() {
         <ChatPanel />
       </section>
       <section className={`panel ${tab === "conta" ? "active" : ""}`}>
-        <ContaPanel account={account} setAccount={setAccount} />
+        <ContaPanel />
       </section>
     </div>
   );
 }
 
 /* ===================== TELA DE ASSINATURA (paywall) ===================== */
-function PaywallScreen({
-  account,
-  setAccount,
-}: {
-  account: { email: string; isAdmin: boolean; validUntil: Date } | null;
-  setAccount: (a: { email: string; isAdmin: boolean; validUntil: Date } | null) => void;
-}) {
+function PaywallScreen() {
   return (
     <div className="wrap paywall-wrap">
       <div className="paywall-hero">
@@ -256,7 +227,7 @@ function PaywallScreen({
         Calculadora de ração, gestão de plantel e consultor IA para avicultura e suinocultura. Entre
         com sua conta ou assine para liberar o app completo.
       </p>
-      <ContaPanel account={account} setAccount={setAccount} />
+      <ContaPanel />
     </div>
   );
 }
@@ -902,277 +873,137 @@ function MemoryEditor({ memory, onChange }: { memory: ArnaMemory; onChange: (m: 
 }
 
 /* ===================== CONTA ===================== */
-function ContaPanel({
-  account,
-  setAccount,
-}: {
-  account: { email: string; isAdmin: boolean; validUntil: Date } | null;
-  setAccount: (a: { email: string; isAdmin: boolean; validUntil: Date } | null) => void;
-}) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loginError, setLoginError] = useState("");
-  const [subscribers, setSubscribers] = useState<Record<string, Date>>({});
-  // Credenciais (usuário/senha) criadas manualmente pelo administrador.
-  const [creds, setCreds] = useState<Record<string, string>>({});
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = localStorage.getItem("aguiar_creds");
-      if (raw) setCreds(JSON.parse(raw));
-    } catch {
-      /* ignora leitura inválida do localStorage */
-    }
-  }, []);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem("aguiar_creds", JSON.stringify(creds));
-  }, [creds]);
-  // Persist subscribers so the /checkout/return page can extend access after Stripe redirects back.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = localStorage.getItem("aguiar_subscribers");
-      if (raw) {
-        const parsed: Record<string, string> = JSON.parse(raw);
-        const map: Record<string, Date> = {};
-        for (const [k, v] of Object.entries(parsed)) map[k] = new Date(v);
-        setSubscribers(map);
-      }
-    } catch {
-      /* ignora leitura inválida do localStorage */
-    }
-  }, []);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const out: Record<string, string> = {};
-    for (const [k, v] of Object.entries(subscribers)) out[k] = v.toISOString();
-    localStorage.setItem("aguiar_subscribers", JSON.stringify(out));
-    // If the current account's validity was extended (e.g. by /checkout/return), sync it.
-    if (
-      account &&
-      subscribers[account.email] &&
-      subscribers[account.email].getTime() !== account.validUntil.getTime()
-    ) {
-      setAccount({ ...account, validUntil: subscribers[account.email] });
-    }
-  }, [subscribers]);
+function ContaPanel() {
+  const session = useSession();
+  const user = session.user;
   const [grantEmail, setGrantEmail] = useState("");
-  const [grantPassword, setGrantPassword] = useState("");
   const [grantDays, setGrantDays] = useState(30);
+  const [subscribers, setSubscribers] = useState<Array<{ email: string; status: string; current_period_end: string | null; price_id: string | null }>>([]);
+  const [adminErr, setAdminErr] = useState("");
+  const [adminBusy, setAdminBusy] = useState(false);
 
-  function login() {
-    if (!email || !password) return;
-    // Se o admin cadastrou uma senha manualmente para este e-mail, ela precisa bater.
-    if (creds[email] && creds[email] !== password) {
-      setLoginError("E-mail ou senha incorretos.");
-      return;
+  async function loadSubs() {
+    try {
+      const rows = await listSubscribers();
+      setSubscribers(rows as typeof subscribers);
+    } catch (e) {
+      setAdminErr(e instanceof Error ? e.message : String(e));
     }
-    setLoginError("");
-    const isAdmin =
-      email.toLowerCase().endsWith("@aguiar.com") || email.toLowerCase().includes("admin");
-    const validUntil = subscribers[email] ?? addDays(isAdmin ? 3650 : 7);
-    setSubscribers({ ...subscribers, [email]: validUntil });
-    setAccount({ email, isAdmin, validUntil });
   }
 
-  function adminGrant() {
+  useEffect(() => {
+    if (session.isAdmin) void loadSubs();
+  }, [session.isAdmin]);
+
+  async function doGrant() {
     if (!grantEmail) return;
-    setSubscribers({ ...subscribers, [grantEmail]: addDays(grantDays) });
-    if (grantPassword.trim()) {
-      setCreds({ ...creds, [grantEmail]: grantPassword.trim() });
+    setAdminBusy(true);
+    setAdminErr("");
+    try {
+      await grantAccess({ data: { email: grantEmail.trim().toLowerCase(), days: grantDays } });
+      setGrantEmail("");
+      await loadSubs();
+    } catch (e) {
+      setAdminErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAdminBusy(false);
     }
-    setGrantEmail("");
-    setGrantPassword("");
   }
 
-  if (!account) {
+  async function signOut() {
+    await supabase.auth.signOut();
+    window.location.href = "/auth";
+  }
+
+  if (!user) {
     return (
       <div className="box login-box">
         <h4>Entrar</h4>
-        <div className="sub">Acesso por assinatura — R$ 50/mês</div>
-        <div className="field">
-          <label>E-mail</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="voce@email.com"
-          />
-        </div>
-        <div className="field">
-          <label>Senha</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && login()}
-          />
-        </div>
-        {loginError && <p className="disclaimer warn">{loginError}</p>}
-        <button className="btn" onClick={login}>
-          Entrar
-        </button>
-        <p className="disclaimer">
-          Já é assinante e recebeu usuário/senha do administrador? Use-os aqui para entrar. Se ainda
-          não tem acesso, cadastre um e-mail e senha para começar o teste gratuito, ou assine um dos
-          planos abaixo depois de entrar.
-        </p>
+        <p className="disclaimer">Você precisa entrar para acessar o app.</p>
+        <Link className="btn" to="/auth" style={{ textDecoration: "none", display: "inline-block" }}>
+          Ir para tela de entrada
+        </Link>
       </div>
     );
   }
 
-  const ativo = account.validUntil > new Date();
+  const sub = session.subscription;
+  const ativo = session.active;
+  const validUntil = sub?.current_period_end ? new Date(sub.current_period_end) : null;
 
   return (
     <>
       <div className="box">
         <h4>Minha assinatura</h4>
-        <div className="status-row">
-          <span>Usuário</span>
-          <b>{account.email}</b>
-        </div>
+        <div className="status-row"><span>Usuário</span><b>{user.email}</b></div>
         <div className="status-row">
           <span>Status</span>
           <b style={{ color: ativo ? "var(--good)" : "var(--bad)" }}>
-            {ativo ? "Ativa" : "Expirada"}
+            {session.isAdmin ? "Admin (vitalício)" : ativo ? "Ativa" : "Sem assinatura"}
           </b>
         </div>
-        <div className="status-row">
-          <span>Válida até</span>
-          <b>{fmtDate(account.validUntil)}</b>
-        </div>
-        <div className="plan-card">
-          <div className="plan-grid">
-            <div style={{ padding: 12, border: "1px solid var(--line, #ddd)", borderRadius: 8 }}>
-              <div className="plan-price">
-                R$ 50 <span>/ mês</span>
+        {validUntil && (
+          <div className="status-row"><span>Válida até</span><b>{fmtDate(validUntil)}</b></div>
+        )}
+        {!session.isAdmin && (
+          <div className="plan-card">
+            <div className="plan-grid">
+              <div style={{ padding: 12, border: "1px solid var(--line, #ddd)", borderRadius: 8 }}>
+                <div className="plan-price">R$ 50 <span>/ mês</span></div>
+                <p style={{ margin: "6px 0 12px", fontSize: 13 }}>Cobrança mensal, cancele quando quiser.</p>
+                <Link to="/checkout" search={{ plan: "aguiar_mensal", email: user.email }} className="btn" style={{ display: "inline-block", textDecoration: "none" }}>
+                  Assinar mensal
+                </Link>
               </div>
-              <p style={{ margin: "6px 0 12px", fontSize: 13 }}>
-                Cobrança mensal, cancele quando quiser.
-              </p>
-              <Link
-                to="/checkout"
-                search={{ plan: "aguiar_mensal", email: account.email }}
-                className="btn"
-                style={{ display: "inline-block", textDecoration: "none" }}
-              >
-                Assinar mensal
-              </Link>
-            </div>
-            <div
-              style={{
-                padding: 12,
-                border: "2px solid var(--green, #2e5b3a)",
-                borderRadius: 8,
-                position: "relative",
-              }}
-            >
-              <span
-                style={{
-                  position: "absolute",
-                  top: -10,
-                  right: 10,
-                  background: "var(--green, #2e5b3a)",
-                  color: "white",
-                  fontSize: 11,
-                  padding: "2px 8px",
-                  borderRadius: 4,
-                }}
-              >
-                -17%
-              </span>
-              <div className="plan-price">
-                R$ 500 <span>/ ano</span>
+              <div style={{ padding: 12, border: "2px solid var(--green, #2e5b3a)", borderRadius: 8, position: "relative" }}>
+                <span style={{ position: "absolute", top: -10, right: 10, background: "var(--green, #2e5b3a)", color: "white", fontSize: 11, padding: "2px 8px", borderRadius: 4 }}>-17%</span>
+                <div className="plan-price">R$ 500 <span>/ ano</span></div>
+                <p style={{ margin: "6px 0 12px", fontSize: 13 }}>Equivale a 2 meses grátis.</p>
+                <Link to="/checkout" search={{ plan: "aguiar_anual", email: user.email }} className="btn" style={{ display: "inline-block", textDecoration: "none" }}>
+                  Assinar anual
+                </Link>
               </div>
-              <p style={{ margin: "6px 0 12px", fontSize: 13 }}>Equivale a 2 meses grátis.</p>
-              <Link
-                to="/checkout"
-                search={{ plan: "aguiar_anual", email: account.email }}
-                className="btn"
-                style={{ display: "inline-block", textDecoration: "none" }}
-              >
-                Assinar anual
-              </Link>
             </div>
           </div>
-        </div>
+        )}
         <div style={{ marginTop: 14 }}>
-          <button className="btn ghost" onClick={() => setAccount(null)}>
-            Sair
-          </button>
+          <button className="btn ghost" onClick={signOut}>Sair</button>
         </div>
       </div>
 
-      {account.isAdmin && (
+      {session.isAdmin && (
         <div className="box">
           <h4>Painel do administrador</h4>
-          <div className="sub">
-            Crie o usuário e a senha de um cliente e libere o acesso manualmente, sem precisar de
-            cobrança pelo Stripe (ex.: pagamento combinado por fora, cortesia, período de teste).
-          </div>
+          <div className="sub">Libere acesso manualmente para um usuário já cadastrado (cortesia, pagamento externo, teste).</div>
           <div className="form-grid admin-grant-grid">
             <div className="field">
               <label>E-mail do usuário</label>
-              <input
-                value={grantEmail}
-                onChange={(e) => setGrantEmail(e.target.value)}
-                placeholder="usuario@email.com"
-              />
-            </div>
-            <div className="field">
-              <label>Senha (opcional)</label>
-              <input
-                value={grantPassword}
-                onChange={(e) => setGrantPassword(e.target.value)}
-                placeholder="defina uma senha"
-              />
+              <input value={grantEmail} onChange={(e) => setGrantEmail(e.target.value)} placeholder="usuario@email.com" />
             </div>
             <div className="field">
               <label>Dias de acesso</label>
-              <input
-                type="number"
-                value={grantDays}
-                onChange={(e) => setGrantDays(parseInt(e.target.value) || 0)}
-              />
+              <input type="number" value={grantDays} onChange={(e) => setGrantDays(parseInt(e.target.value) || 0)} />
             </div>
             <div className="field" style={{ alignSelf: "end" }}>
-              <button className="btn" onClick={adminGrant}>
-                Liberar acesso
-              </button>
+              <button className="btn" onClick={doGrant} disabled={adminBusy}>{adminBusy ? "…" : "Liberar acesso"}</button>
             </div>
           </div>
+          {adminErr && <p className="disclaimer warn">{adminErr}</p>}
           <div className="admin-list">
-            {Object.entries(subscribers).length === 0 ? (
-              <p className="mono" style={{ fontSize: 12, color: "var(--ink-soft)" }}>
-                Nenhum usuário liberado ainda.
-              </p>
+            {subscribers.length === 0 ? (
+              <p className="mono" style={{ fontSize: 12, color: "var(--ink-soft)" }}>Nenhum assinante ainda.</p>
             ) : (
-              Object.entries(subscribers).map(([e, d]) => (
-                <div key={e} className="admin-row">
-                  <span>
-                    {e}
-                    {creds[e] && (
-                      <span
-                        className="mono"
-                        style={{ fontSize: 10, color: "var(--ink-soft)", marginLeft: 6 }}
-                      >
-                        · login criado
-                      </span>
-                    )}
-                  </span>
-                  <span className="mono">até {fmtDate(d)}</span>
+              subscribers.map((s) => (
+                <div key={s.email} className="admin-row">
+                  <span>{s.email} <span className="mono" style={{ fontSize: 10, color: "var(--ink-soft)", marginLeft: 6 }}>· {s.status}{s.price_id ? ` · ${s.price_id}` : ""}</span></span>
+                  <span className="mono">{s.current_period_end ? `até ${fmtDate(new Date(s.current_period_end))}` : "—"}</span>
                 </div>
               ))
             )}
           </div>
-          <p className="disclaimer">
-            Painel de demonstração (dados guardados neste navegador). Em produção, isso deve gravar
-            em um backend real (ex.: Supabase, já com tabela de assinantes preparada em{" "}
-            <code>supabase/migrations</code>), com a senha protegida por hash no servidor.
-          </p>
         </div>
       )}
     </>
   );
 }
+
