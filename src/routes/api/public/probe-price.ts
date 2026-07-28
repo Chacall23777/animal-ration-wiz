@@ -7,7 +7,7 @@ export const Route = createFileRoute("/api/public/probe-price")({
       GET: async ({ request }) => {
         const env = (new URL(request.url).searchParams.get("env") as "sandbox" | "live") || "sandbox";
         const stripe = createStripeClient(env);
-        const prices = await stripe.prices.list({ lookup_keys: ["aguiar_vitalicio"], limit: 5 });
+        const prices = await stripe.prices.list({ lookup_keys: ["aguiar_vitalicio"], limit: 5, expand: ["data.product"] });
         return Response.json(
           prices.data.map((p) => ({
             id: p.id,
