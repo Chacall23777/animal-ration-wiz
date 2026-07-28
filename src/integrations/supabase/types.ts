@@ -79,33 +79,134 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           created_at: string
           email: string
           full_name: string | null
           id: string
+          instagram: string | null
           lifetime_access: boolean
           lifetime_granted_at: string | null
           updated_at: string
+          whatsapp: string | null
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           email: string
           full_name?: string | null
           id: string
+          instagram?: string | null
           lifetime_access?: boolean
           lifetime_granted_at?: string | null
           updated_at?: string
+          whatsapp?: string | null
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           email?: string
           full_name?: string | null
           id?: string
+          instagram?: string | null
           lifetime_access?: boolean
           lifetime_granted_at?: string | null
           updated_at?: string
+          whatsapp?: string | null
         }
         Relationships: []
+      }
+      properties: {
+        Row: {
+          city: string | null
+          country: string | null
+          created_at: string
+          description: string | null
+          id: string
+          instagram: string | null
+          is_default: boolean
+          logo_url: string | null
+          name: string
+          owner_id: string
+          photo_url: string | null
+          state: string | null
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          instagram?: string | null
+          is_default?: boolean
+          logo_url?: string | null
+          name: string
+          owner_id: string
+          photo_url?: string | null
+          state?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          instagram?: string | null
+          is_default?: boolean
+          logo_url?: string | null
+          name?: string
+          owner_id?: string
+          photo_url?: string | null
+          state?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
+      property_photos: {
+        Row: {
+          caption: string | null
+          category: Database["public"]["Enums"]["property_photo_category"]
+          created_at: string
+          id: string
+          lote_id: string | null
+          owner_id: string
+          property_id: string
+          url: string
+        }
+        Insert: {
+          caption?: string | null
+          category?: Database["public"]["Enums"]["property_photo_category"]
+          created_at?: string
+          id?: string
+          lote_id?: string | null
+          owner_id: string
+          property_id: string
+          url: string
+        }
+        Update: {
+          caption?: string | null
+          category?: Database["public"]["Enums"]["property_photo_category"]
+          created_at?: string
+          id?: string
+          lote_id?: string | null
+          owner_id?: string
+          property_id?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_photos_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subscriptions: {
         Row: {
@@ -189,6 +290,13 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      property_photo_category:
+        | "propriedade"
+        | "lote"
+        | "animais"
+        | "galpao"
+        | "aviario"
+        | "pocilga"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -317,6 +425,14 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      property_photo_category: [
+        "propriedade",
+        "lote",
+        "animais",
+        "galpao",
+        "aviario",
+        "pocilga",
+      ],
     },
   },
 } as const
