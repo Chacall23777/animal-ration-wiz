@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createStripeClient } from "@/lib/stripe.server";
 
-export const Route = createFileRoute("/api/public/_probe-price")({
+export const Route = createFileRoute("/api/public/probe-price")({
   server: {
     handlers: {
       GET: async ({ request }) => {

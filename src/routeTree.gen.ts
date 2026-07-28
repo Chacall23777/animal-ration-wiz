@@ -14,7 +14,7 @@ import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CheckoutReturnRouteImport } from './routes/checkout.return'
-import { Route as ApiPublicProbePriceRouteImport } from './routes/api/public/_probe-price'
+import { Route as ApiPublicProbePriceRouteImport } from './routes/api/public/probe-price'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 
 const SetPasswordRoute = SetPasswordRouteImport.update({
@@ -43,8 +43,8 @@ const CheckoutReturnRoute = CheckoutReturnRouteImport.update({
   getParentRoute: () => CheckoutRoute,
 } as any)
 const ApiPublicProbePriceRoute = ApiPublicProbePriceRouteImport.update({
-  id: '/api/public/_probe-price',
-  path: '/api/public',
+  id: '/api/public/probe-price',
+  path: '/api/public/probe-price',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicPaymentsWebhookRoute =
@@ -60,7 +60,7 @@ export interface FileRoutesByFullPath {
   '/checkout': typeof CheckoutRouteWithChildren
   '/set-password': typeof SetPasswordRoute
   '/checkout/return': typeof CheckoutReturnRoute
-  '/api/public': typeof ApiPublicProbePriceRoute
+  '/api/public/probe-price': typeof ApiPublicProbePriceRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
 }
 export interface FileRoutesByTo {
@@ -69,7 +69,7 @@ export interface FileRoutesByTo {
   '/checkout': typeof CheckoutRouteWithChildren
   '/set-password': typeof SetPasswordRoute
   '/checkout/return': typeof CheckoutReturnRoute
-  '/api/public': typeof ApiPublicProbePriceRoute
+  '/api/public/probe-price': typeof ApiPublicProbePriceRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
 }
 export interface FileRoutesById {
@@ -79,7 +79,7 @@ export interface FileRoutesById {
   '/checkout': typeof CheckoutRouteWithChildren
   '/set-password': typeof SetPasswordRoute
   '/checkout/return': typeof CheckoutReturnRoute
-  '/api/public/_probe-price': typeof ApiPublicProbePriceRoute
+  '/api/public/probe-price': typeof ApiPublicProbePriceRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
 }
 export interface FileRouteTypes {
@@ -90,7 +90,7 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/set-password'
     | '/checkout/return'
-    | '/api/public'
+    | '/api/public/probe-price'
     | '/api/public/payments/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -99,7 +99,7 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/set-password'
     | '/checkout/return'
-    | '/api/public'
+    | '/api/public/probe-price'
     | '/api/public/payments/webhook'
   id:
     | '__root__'
@@ -108,7 +108,7 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/set-password'
     | '/checkout/return'
-    | '/api/public/_probe-price'
+    | '/api/public/probe-price'
     | '/api/public/payments/webhook'
   fileRoutesById: FileRoutesById
 }
@@ -158,10 +158,10 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CheckoutReturnRouteImport
       parentRoute: typeof CheckoutRoute
     }
-    '/api/public/_probe-price': {
-      id: '/api/public/_probe-price'
-      path: '/api/public'
-      fullPath: '/api/public'
+    '/api/public/probe-price': {
+      id: '/api/public/probe-price'
+      path: '/api/public/probe-price'
+      fullPath: '/api/public/probe-price'
       preLoaderRoute: typeof ApiPublicProbePriceRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -198,3 +198,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
