@@ -118,7 +118,7 @@ function AuthPage() {
     setBusy(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/set-password`,
+        redirectTo: "https://arnanutricaoanimal.store/set-password",
       });
       if (error) throw error;
       setInfo("Enviamos um link para o seu e-mail. Verifique também a caixa de spam.");

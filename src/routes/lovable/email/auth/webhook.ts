@@ -9,7 +9,7 @@ import { EmailChangeEmail } from '@/lib/email-templates/email-change'
 import { ReauthenticationEmail } from '@/lib/email-templates/reauthentication'
 
 // Configuration
-const SITE_NAME = "aguiarnutricaoanimal"
+const SITE_NAME = "ARNA Nutrição Animal"
 const SENDER_DOMAIN = "notify.arnanutricaoanimal.store"
 const ROOT_DOMAIN = "arnanutricaoanimal.store"
 const FROM_DOMAIN = "arnanutricaoanimal.store"
@@ -51,7 +51,7 @@ const handler = createAuthEmailHandler({
         }),
     },
     recovery: {
-      subject: 'Reset your password',
+      subject: 'Redefina sua senha de acesso ao ARNA',
       render: (data) =>
         React.createElement(RecoveryEmail, {
           siteName: SITE_NAME,
