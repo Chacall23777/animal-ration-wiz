@@ -27,7 +27,6 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         mode: isRecurring ? "subscription" : "payment",
         ui_mode: "embedded_page",
         return_url: data.returnUrl,
-        automatic_tax: { enabled: true },
         ...(data.customerEmail && { customer_email: data.customerEmail }),
         ...(data.userId && {
           metadata: { userId: data.userId },
