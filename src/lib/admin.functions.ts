@@ -51,22 +51,21 @@ export const grantAccess = createServerFn({ method: "POST" })
       .maybeSingle();
     if (pErr) throw pErr;
     if (!prof) {
-      // Convida o usuário via Auth Admin. O trigger handle_new_user cria o profile.
-      const { data: invited, error: inviteErr } =
-        await supabaseAdmin.auth.admin.inviteUserByEmail(email);
-      if (inviteErr) {
-        // Fallback: cria o usuário direto se o convite falhar (ex.: e-mail já existe em auth.users).
-        const { data: created, error: createErr } =
-          await supabaseAdmin.auth.admin.createUser({ email, email_confirm: true });
-        if (createErr) throw new Error(`Não foi possível cadastrar ${email}: ${inviteErr.message}`);
-        prof = { id: created.user!.id } as { id: string };
-      } else {
-        prof = { id: invited.user!.id } as { id: string };
-      }
-      // Garante o profile mesmo que o trigger não tenha rodado ainda.
-      await supabaseAdmin
-        .from("profiles")
-        .upsert({ id: prof.id as string, email }, { onConflict: "id" });
+      // E-mail ainda não tem conta: pré-aprovamos. Quando o usuário se cadastrar
+      // pelo /auth com esse e-mail, o trigger handle_new_user aplica o acesso.
+      const { error: pendErr } = await supabaseAdmin.from("pending_access").upsert(
+        {
+          email,
+          days: data.days,
+          lifetime: false,
+          granted_by: context.userId,
+          used_at: null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "email" },
+      );
+      if (pendErr) throw pendErr;
+      return { ok: true, pending: true, until: new Date(Date.now() + data.days * 86400_000).toISOString() };
     }
     const until = new Date(Date.now() + data.days * 86400_000).toISOString();
     const manualId = `manual_${prof.id as string}`;
@@ -83,7 +82,7 @@ export const grantAccess = createServerFn({ method: "POST" })
       { onConflict: "stripe_subscription_id" },
     );
     if (error) throw error;
-    return { ok: true, until };
+    return { ok: true, pending: false, until };
   });
 
 export const revokeAccess = createServerFn({ method: "POST" })
