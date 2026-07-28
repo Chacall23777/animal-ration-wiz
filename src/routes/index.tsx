@@ -7,6 +7,18 @@ import { arnaChat, type ArnaMemory, type ArnaChatMsg } from "@/utils/arna-chat.f
 import { useSession } from "@/lib/session";
 import { supabase } from "@/integrations/supabase/client";
 import { listSubscribers, grantAccess, revokeAccess, getAdminStats } from "@/lib/admin.functions";
+import {
+  exportLotePDF,
+  exportLoteXLSX,
+  exportPlantelPDF,
+  exportPlantelXLSX,
+  downloadBlob,
+  shareBlob,
+  printPDFBlob,
+  slug,
+  type ReportLote,
+  type ReportContext,
+} from "@/lib/plantel-report";
 
 export const Route = createFileRoute("/")({
   component: AguiarApp,
