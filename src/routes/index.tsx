@@ -6,7 +6,7 @@ import arnaLogo from "@/assets/arna-logo.png.asset.json";
 import { arnaChat, type ArnaMemory, type ArnaChatMsg } from "@/utils/arna-chat.functions";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/integrations/supabase/client";
-import { listSubscribers, grantAccess } from "@/lib/admin.functions";
+import { listSubscribers, grantAccess, revokeAccess, getAdminStats } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/")({
   component: AguiarApp,
@@ -885,11 +885,20 @@ function ContaPanel() {
   const [subscribers, setSubscribers] = useState<Array<{ email: string; status: string; current_period_end: string | null; price_id: string | null }>>([]);
   const [adminErr, setAdminErr] = useState("");
   const [adminBusy, setAdminBusy] = useState(false);
+  const [stats, setStats] = useState<{
+    totalUsers: number;
+    activeSubscriptions: number;
+    manualGrants: number;
+    stripeActive: number;
+    mrrBRL: number;
+    chatInteractions: number;
+  } | null>(null);
 
   async function loadSubs() {
     try {
-      const rows = await listSubscribers();
+      const [rows, s] = await Promise.all([listSubscribers(), getAdminStats()]);
       setSubscribers(rows as typeof subscribers);
+      setStats(s);
     } catch (e) {
       setAdminErr(e instanceof Error ? e.message : String(e));
     }
@@ -906,6 +915,20 @@ function ContaPanel() {
     try {
       await grantAccess({ data: { email: grantEmail.trim().toLowerCase(), days: grantDays } });
       setGrantEmail("");
+      await loadSubs();
+    } catch (e) {
+      setAdminErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAdminBusy(false);
+    }
+  }
+
+  async function doRevoke(email: string) {
+    if (!confirm(`Revogar acesso de ${email}?`)) return;
+    setAdminBusy(true);
+    setAdminErr("");
+    try {
+      await revokeAccess({ data: { email } });
       await loadSubs();
     } catch (e) {
       setAdminErr(e instanceof Error ? e.message : String(e));
@@ -977,7 +1000,17 @@ function ContaPanel() {
 
       {session.isAdmin && (
         <div className="box">
-          <h4>Painel do administrador</h4>
+          <h4>Painel do proprietário</h4>
+          {stats && (
+            <div className="form-grid" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 8, marginBottom: 12 }}>
+              <StatCard label="Usuários" value={stats.totalUsers} />
+              <StatCard label="Assinaturas ativas" value={stats.activeSubscriptions} />
+              <StatCard label="Pagas (Stripe)" value={stats.stripeActive} />
+              <StatCard label="Cortesias" value={stats.manualGrants} />
+              <StatCard label="MRR estimado" value={brl(stats.mrrBRL)} />
+              <StatCard label="Consultas IA" value={stats.chatInteractions} />
+            </div>
+          )}
           <div className="sub">Libere acesso manualmente para um usuário já cadastrado (cortesia, pagamento externo, teste).</div>
           <div className="form-grid admin-grant-grid">
             <div className="field">
@@ -986,7 +1019,12 @@ function ContaPanel() {
             </div>
             <div className="field">
               <label>Dias de acesso</label>
-              <input type="number" value={grantDays} onChange={(e) => setGrantDays(parseInt(e.target.value) || 0)} />
+              <select value={grantDays} onChange={(e) => setGrantDays(parseInt(e.target.value) || 30)}>
+                <option value={30}>30 dias</option>
+                <option value={90}>90 dias</option>
+                <option value={180}>180 dias</option>
+                <option value={365}>365 dias</option>
+              </select>
             </div>
             <div className="field" style={{ alignSelf: "end" }}>
               <button className="btn" onClick={doGrant} disabled={adminBusy}>{adminBusy ? "…" : "Liberar acesso"}</button>
@@ -1000,7 +1038,10 @@ function ContaPanel() {
               subscribers.map((s) => (
                 <div key={s.email} className="admin-row">
                   <span>{s.email} <span className="mono" style={{ fontSize: 10, color: "var(--ink-soft)", marginLeft: 6 }}>· {s.status}{s.price_id ? ` · ${s.price_id}` : ""}</span></span>
-                  <span className="mono">{s.current_period_end ? `até ${fmtDate(new Date(s.current_period_end))}` : "—"}</span>
+                  <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span className="mono">{s.current_period_end ? `até ${fmtDate(new Date(s.current_period_end))}` : "—"}</span>
+                    <button className="btn ghost" style={{ padding: "2px 8px", fontSize: 11 }} onClick={() => doRevoke(s.email)} disabled={adminBusy}>Revogar</button>
+                  </span>
                 </div>
               ))
             )}
@@ -1008,6 +1049,15 @@ function ContaPanel() {
         </div>
       )}
     </>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div style={{ padding: 10, border: "1px solid var(--line, #ddd)", borderRadius: 8, background: "var(--paper, #fff)" }}>
+      <div style={{ fontSize: 11, color: "var(--ink-soft, #666)", textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</div>
+      <div style={{ fontSize: 20, fontWeight: 700, marginTop: 2 }}>{value}</div>
+    </div>
   );
 }
 
