@@ -343,3 +343,43 @@ input,select,textarea,button{font-size:16px;}
 .species-emoji{font-size:28px;line-height:1;}
 .species-name{font-family:'Bebas Neue',sans-serif;letter-spacing:0.5px;font-size:18px;margin-top:4px;}
 .species-sub{font-size:10.5px;color:var(--ink-soft);margin-top:2px;line-height:1.3;}
+
+/* ================== FINANCEIRO ================== */
+.chart6{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;align-items:end;height:160px;padding:8px 0 4px;}
+.chart6-col{display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;}
+.chart6-bars{display:flex;gap:4px;align-items:flex-end;height:100%;width:100%;justify-content:center;}
+.chart6-bar{width:14px;border-radius:4px 4px 0 0;transition:height .2s;min-height:2px;}
+.chart6-bar.rec{background:var(--good);}
+.chart6-bar.des{background:var(--rust);}
+.chart6-lbl{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--ink-soft);text-transform:capitalize;}
+
+.cat-list{display:flex;flex-direction:column;gap:10px;}
+.cat-row{display:grid;grid-template-columns:140px 1fr 110px;align-items:center;gap:12px;}
+.cat-name{font-size:13px;color:var(--ink);}
+.cat-bar{height:10px;background:var(--card);border-radius:6px;overflow:hidden;}
+.cat-bar-fill{height:100%;background:linear-gradient(90deg,var(--gold-deep),var(--rust));border-radius:6px;}
+.cat-val{font-family:'IBM Plex Mono',monospace;font-size:13px;text-align:right;color:var(--ink);}
+
+.tx-list{display:flex;flex-direction:column;gap:8px;}
+.tx-row{display:grid;grid-template-columns:100px 1fr auto auto;gap:12px;align-items:center;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);}
+.tx-row.tx-receita{border-left:5px solid var(--good);}
+.tx-row.tx-despesa{border-left:5px solid var(--rust);}
+.tx-date{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-soft);}
+.tx-title{font-weight:600;font-size:14px;}
+.tx-meta{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+.tx-val{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:14px;text-align:right;}
+@media (max-width:640px){.tx-row{grid-template-columns:1fr auto;}.tx-date{grid-column:1/2;font-size:11px;}}
+
+/* ================== SANITÁRIO ================== */
+.cnt-pill{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:11px;padding:2px 8px;border-radius:10px;background:var(--card);color:var(--ink);margin-left:6px;vertical-align:middle;}
+.san-list{display:flex;flex-direction:column;gap:8px;}
+.san-item{display:grid;grid-template-columns:60px 1fr auto;gap:12px;align-items:center;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);}
+.san-item.danger{border-left:5px solid var(--rust);background:color-mix(in oklab, var(--rust) 8%, var(--surface));}
+.san-item.warn{border-left:5px solid #E1A32B;}
+.san-item.info{border-left:5px solid var(--gold-deep);}
+.san-item.done{opacity:0.75;border-left:5px solid var(--good);}
+.san-date{display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--card);border-radius:8px;padding:6px 4px;}
+.san-day{font-family:'Bebas Neue',sans-serif;font-size:24px;line-height:1;}
+.san-mon{font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;color:var(--ink-soft);}
+.san-title{font-weight:600;font-size:14.5px;}
+.san-meta{font-size:11.5px;color:var(--ink-soft);margin-top:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
