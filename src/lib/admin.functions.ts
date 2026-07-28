@@ -46,19 +46,87 @@ export const grantAccess = createServerFn({ method: "POST" })
     if (pErr) throw pErr;
     if (!prof) throw new Error("Usuário ainda não cadastrado — peça para se cadastrar primeiro.");
     const until = new Date(Date.now() + data.days * 86400_000).toISOString();
+    const manualId = `manual_${prof.id as string}`;
     const { error } = await supabaseAdmin.from("subscriptions").upsert(
       {
         user_id: prof.id as string,
+        stripe_subscription_id: manualId,
         status: "active",
         price_id: "admin_grant",
         current_period_end: until,
         cancel_at_period_end: false,
         environment: "manual",
       },
-      { onConflict: "user_id" },
+      { onConflict: "stripe_subscription_id" },
     );
     if (error) throw error;
     return { ok: true, until };
+  });
+
+export const revokeAccess = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { email: string }) => z.object({ email: z.string().email() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: isAdmin } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (!isAdmin) throw new Error("Forbidden");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: prof } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("email", data.email.toLowerCase())
+      .maybeSingle();
+    if (!prof) throw new Error("Usuário não encontrado.");
+    const { error } = await supabaseAdmin
+      .from("subscriptions")
+      .update({ status: "canceled", current_period_end: new Date().toISOString() })
+      .eq("user_id", prof.id as string);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const getAdminStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: isAdmin } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (!isAdmin) throw new Error("Forbidden");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const [{ count: totalUsers }, { data: subs }, { count: chatCount }] = await Promise.all([
+      supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }),
+      supabaseAdmin.from("subscriptions").select("status, price_id, current_period_end, environment"),
+      supabaseAdmin.from("audit_logs").select("id", { count: "exact", head: true }).eq("action", "arna_chat"),
+    ]);
+    const now = Date.now();
+    let active = 0;
+    let manual = 0;
+    let stripeActive = 0;
+    let mrrCents = 0;
+    for (const s of subs ?? []) {
+      const end = s.current_period_end ? new Date(s.current_period_end).getTime() : null;
+      const isLive = end === null || end > now;
+      if (["active", "trialing"].includes(s.status as string) && isLive) {
+        active++;
+        if (s.environment === "manual") manual++;
+        else {
+          stripeActive++;
+          if (s.price_id === "aguiar_mensal") mrrCents += 5000;
+          else if (s.price_id === "aguiar_anual") mrrCents += Math.round(50000 / 12);
+        }
+      }
+    }
+    return {
+      totalUsers: totalUsers ?? 0,
+      activeSubscriptions: active,
+      manualGrants: manual,
+      stripeActive,
+      mrrBRL: mrrCents / 100,
+      chatInteractions: chatCount ?? 0,
+    };
   });
 
 export const finalizeCheckout = createServerFn({ method: "POST" })
@@ -82,18 +150,19 @@ export const finalizeCheckout = createServerFn({ method: "POST" })
       ? new Date(sub.current_period_end * 1000).toISOString()
       : new Date(Date.now() + (priceLookup === "aguiar_anual" ? 365 : 30) * 86400_000).toISOString();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const subscriptionKey = sub?.id ?? `checkout_${data.sessionId}`;
     const { error } = await supabaseAdmin.from("subscriptions").upsert(
       {
         user_id: context.userId,
         stripe_customer_id: (session.customer as string) ?? null,
-        stripe_subscription_id: sub?.id ?? null,
+        stripe_subscription_id: subscriptionKey,
         status: sub?.status ?? "active",
         price_id: priceLookup,
         current_period_end: periodEnd,
         cancel_at_period_end: sub?.cancel_at_period_end ?? false,
         environment: data.environment,
       },
-      { onConflict: "user_id" },
+      { onConflict: "stripe_subscription_id" },
     );
     if (error) throw error;
     return { ok: true, periodEnd };
