@@ -36,23 +36,30 @@ export const CATEGORIAS: Record<TxCategory, { label: string; kind: TxKind }> = {
 
 const KEY = "arna_finance_v1";
 let scope: string | null = null;
-function key() { return scope ? `${KEY}::${scope}` : KEY; }
+// Sem propriedade ativa não há chave válida — antes caía numa chave global
+// compartilhada entre contas no mesmo navegador, vazando dados financeiros.
+function key(): string | null { return scope ? `${KEY}::${scope}` : null; }
 const listeners = new Set<() => void>();
 let state: Transacao[] = [];
 let initialized = false;
 
 function read(): Transacao[] {
-  if (typeof window === "undefined") return [];
-  try { return JSON.parse(localStorage.getItem(key()) || "[]"); } catch { return []; }
+  const k = key();
+  if (typeof window === "undefined" || !k) return [];
+  try { return JSON.parse(localStorage.getItem(k) || "[]"); } catch { return []; }
 }
-function write(v: Transacao[]) { try { localStorage.setItem(key(), JSON.stringify(v)); } catch {} }
+function write(v: Transacao[]) {
+  const k = key();
+  if (!k) return; // sem propriedade ativa: não persiste
+  try { localStorage.setItem(k, JSON.stringify(v)); } catch {}
+}
 function emit() { for (const l of listeners) l(); }
 function ensureInit() {
   if (initialized || typeof window === "undefined") return;
   state = read();
   initialized = true;
   window.addEventListener("storage", (e) => {
-    if (e.key === key()) { state = read(); emit(); }
+    if (key() && e.key === key()) { state = read(); emit(); }
   });
 }
 
