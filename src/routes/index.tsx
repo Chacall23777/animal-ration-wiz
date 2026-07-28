@@ -390,7 +390,7 @@ function AguiarAppInner({
         <SanitarioPanel />
       </section>
       <section className={`panel ${tab === "chat" ? "active" : ""}`}>
-        <ChatPanel />
+        <ChatPanel key={user.id} />
       </section>
       <section className={`panel ${tab === "galeria" ? "active" : ""}`}>
         <GaleriaPanel userId={user.id} activeProperty={active} />
@@ -2034,6 +2034,7 @@ const SUGGESTIONS = [
 const MEMORY_KEY = "arna_memory_v1";
 const HISTORY_KEY = "arna_history_v1";
 const CLIENT_ID_KEY = "arna_client_id_v1";
+const LOTE_NOTES_KEY = "arna_lote_notes_v1";
 
 function getClientId(): string {
   if (typeof window === "undefined") return "";
@@ -2047,31 +2048,56 @@ function getClientId(): string {
   } catch { return ""; }
 }
 
-function loadMemory(): ArnaMemory {
-  if (typeof window === "undefined") return {};
-  try { return JSON.parse(localStorage.getItem(MEMORY_KEY) || "{}"); } catch { return {}; }
+function scopedKey(base: string, userId: string | null): string | null {
+  return userId ? `${base}::${userId}` : null;
 }
-function saveMemory(m: ArnaMemory) {
-  try { localStorage.setItem(MEMORY_KEY, JSON.stringify(m)); } catch {}
+function migrateLegacy(base: string, userId: string): string | null {
+  try {
+    const legacy = localStorage.getItem(base);
+    if (legacy == null) return null;
+    localStorage.removeItem(base);
+    const dest = scopedKey(base, userId)!;
+    if (localStorage.getItem(dest) == null) localStorage.setItem(dest, legacy);
+    return localStorage.getItem(dest);
+  } catch { return null; }
 }
-function loadHistory(): Msg[] {
-  if (typeof window === "undefined") return [];
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch { return []; }
+function loadMemory(userId: string | null): ArnaMemory {
+  if (typeof window === "undefined" || !userId) return {};
+  try {
+    const v = localStorage.getItem(scopedKey(MEMORY_KEY, userId)!) ?? migrateLegacy(MEMORY_KEY, userId);
+    return v ? JSON.parse(v) : {};
+  } catch { return {}; }
 }
-function saveHistory(m: Msg[]) {
-  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(m.slice(-40))); } catch {}
+function saveMemory(userId: string | null, m: ArnaMemory) {
+  if (!userId) return;
+  try { localStorage.setItem(scopedKey(MEMORY_KEY, userId)!, JSON.stringify(m)); } catch {}
 }
-const LOTE_NOTES_KEY = "arna_lote_notes_v1";
-function loadLoteNotes(): Record<string, string> {
-  if (typeof window === "undefined") return {};
-  try { return JSON.parse(localStorage.getItem(LOTE_NOTES_KEY) || "{}"); } catch { return {}; }
+function loadHistory(userId: string | null): Msg[] {
+  if (typeof window === "undefined" || !userId) return [];
+  try {
+    const v = localStorage.getItem(scopedKey(HISTORY_KEY, userId)!) ?? migrateLegacy(HISTORY_KEY, userId);
+    return v ? JSON.parse(v) : [];
+  } catch { return []; }
 }
-function saveLoteNotes(n: Record<string, string>) {
-  try { localStorage.setItem(LOTE_NOTES_KEY, JSON.stringify(n)); } catch {}
+function saveHistory(userId: string | null, m: Msg[]) {
+  if (!userId) return;
+  try { localStorage.setItem(scopedKey(HISTORY_KEY, userId)!, JSON.stringify(m.slice(-40))); } catch {}
+}
+function loadLoteNotes(userId: string | null): Record<string, string> {
+  if (typeof window === "undefined" || !userId) return {};
+  try {
+    const v = localStorage.getItem(scopedKey(LOTE_NOTES_KEY, userId)!) ?? migrateLegacy(LOTE_NOTES_KEY, userId);
+    return v ? JSON.parse(v) : {};
+  } catch { return {}; }
+}
+function saveLoteNotes(userId: string | null, n: Record<string, string>) {
+  if (!userId) return;
+  try { localStorage.setItem(scopedKey(LOTE_NOTES_KEY, userId)!, JSON.stringify(n)); } catch {}
 }
 
 function ChatPanel() {
   const session = useSession();
+  const userId = session.user?.id ?? null;
   const initialMsgs: Msg[] = [
     {
       who: "system-note",
@@ -2079,16 +2105,16 @@ function ChatPanel() {
     },
   ];
   const [msgs, setMsgs] = useState<Msg[]>(() => {
-    const h = loadHistory();
+    const h = loadHistory(userId);
     return h.length ? h : initialMsgs;
   });
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [pro, setPro] = useState(false);
-  const [memory, setMemory] = useState<ArnaMemory>(() => loadMemory());
+  const [memory, setMemory] = useState<ArnaMemory>(() => loadMemory(userId));
   const [showMem, setShowMem] = useState(false);
   const [focusLoteId, setFocusLoteId] = useState<string>("");
-  const [loteNotes, setLoteNotes] = useState<Record<string, string>>(() => loadLoteNotes());
+  const [loteNotes, setLoteNotes] = useState<Record<string, string>>(() => loadLoteNotes(userId));
   const bodyRef = useRef<HTMLDivElement>(null);
   const { lotes, estoque } = useLotesStore();
 
@@ -2139,7 +2165,7 @@ function ChatPanel() {
     });
   }, [lotes, estoque.precoKg, loteNotes]);
 
-  useEffect(() => { saveLoteNotes(loteNotes); }, [loteNotes]);
+  useEffect(() => { saveLoteNotes(userId, loteNotes); }, [userId, loteNotes]);
   useEffect(() => {
     if (focusLoteId && !lotes.find((l) => l.id === focusLoteId)) setFocusLoteId("");
   }, [lotes, focusLoteId]);
@@ -2148,8 +2174,8 @@ function ChatPanel() {
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: "smooth" });
   }, [msgs, typing]);
 
-  useEffect(() => { saveHistory(msgs); }, [msgs]);
-  useEffect(() => { saveMemory(memory); }, [memory]);
+  useEffect(() => { saveHistory(userId, msgs); }, [userId, msgs]);
+  useEffect(() => { saveMemory(userId, memory); }, [userId, memory]);
 
   async function send(text: string) {
     const q = text.trim();
@@ -2190,7 +2216,8 @@ function ChatPanel() {
 
   function clearChat() {
     setMsgs(initialMsgs);
-    try { localStorage.removeItem(HISTORY_KEY); } catch {}
+    const k = scopedKey(HISTORY_KEY, userId);
+    if (k) { try { localStorage.removeItem(k); } catch {} }
   }
 
   return (
