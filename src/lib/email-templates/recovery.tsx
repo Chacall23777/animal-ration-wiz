@@ -25,17 +25,23 @@ export const RecoveryEmail = ({
     <Preview>Reset your password for {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>Reset your password</Heading>
+        <Heading style={h1}>Redefinir sua senha</Heading>
         <Text style={text}>
-          We received a request to reset your password for {siteName}. Click
-          the button below to choose a new password.
+          Recebemos um pedido para redefinir a senha da sua conta no{' '}
+          <strong>{siteName}</strong>. Clique no botão abaixo para criar uma
+          nova senha — o link é válido por tempo limitado.
         </Text>
         <Button style={button} href={confirmationUrl}>
-          Reset Password
+          Redefinir senha
         </Button>
+        <Text style={text}>
+          Se o botão não funcionar, copie e cole este endereço no navegador:
+          <br />
+          <a href={confirmationUrl} style={fallbackLink}>{confirmationUrl}</a>
+        </Text>
         <Text style={footer}>
-          If you didn't request a password reset, you can safely ignore this
-          email. Your password will not be changed.
+          Se você não solicitou a redefinição, pode ignorar este e-mail com
+          segurança — sua senha não será alterada.
         </Text>
       </Container>
     </Body>
@@ -45,25 +51,31 @@ export const RecoveryEmail = ({
 export default RecoveryEmail
 
 const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
-const container = { padding: '20px 25px' }
+const container = {
+  padding: '28px 32px',
+  maxWidth: '520px',
+  borderTop: '4px solid #d4a72c',
+}
 const h1 = {
   fontSize: '22px',
   fontWeight: 'bold' as const,
-  color: '#000000',
+  color: '#0f4d2a',
   margin: '0 0 20px',
 }
 const text = {
   fontSize: '14px',
-  color: '#55575d',
+  color: '#333333',
   lineHeight: '1.5',
-  margin: '0 0 25px',
+  margin: '0 0 20px',
 }
 const button = {
-  backgroundColor: '#000000',
+  backgroundColor: '#0f4d2a',
   color: '#ffffff',
-  fontSize: '14px',
+  fontSize: '15px',
+  fontWeight: 'bold' as const,
   borderRadius: '8px',
-  padding: '12px 20px',
+  padding: '14px 24px',
   textDecoration: 'none',
 }
+const fallbackLink = { color: '#0f4d2a', wordBreak: 'break-all' as const, fontSize: '12px' }
 const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
