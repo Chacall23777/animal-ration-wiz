@@ -2302,7 +2302,7 @@ function MemoryEditor({ memory, onChange }: { memory: ArnaMemory; onChange: (m: 
 }
 
 /* ===================== CONTA ===================== */
-function ContaPanel() {
+function ContaPanel({ activeProperty }: { activeProperty: Property | null }) {
   const session = useSession();
   const user = session.user;
   const [grantEmail, setGrantEmail] = useState("");
