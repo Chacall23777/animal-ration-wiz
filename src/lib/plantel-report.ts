@@ -50,6 +50,22 @@ export type ReportContext = {
   email?: string;
   logoUrl: string;
   observacoes?: string;
+  propriedade?: {
+    nome: string;
+    cidade?: string | null;
+    estado?: string | null;
+    pais?: string | null;
+    descricao?: string | null;
+    whatsapp?: string | null;
+    instagram?: string | null;
+    coverUrl?: string | null;   // signed URL
+    logoUrl?: string | null;    // signed URL (property logo, overrides ARNA in the corner accent)
+  };
+  fotos?: Array<{
+    url: string;               // signed URL
+    caption?: string | null;
+    category?: string | null;
+  }>;
 };
 
 const BRAND = {
@@ -152,7 +168,13 @@ async function drawHeader(
   doc.setFontSize(9);
   doc.setTextColor(...BRAND.ink);
   doc.text(`Produtor: ${ctx.produtor || "—"}`, 12, 62);
-  if (ctx.email) doc.text(ctx.email, w - 12, 62, { align: "right" });
+  const rightLine: string[] = [];
+  if (ctx.propriedade?.nome) {
+    const loc = [ctx.propriedade.cidade, ctx.propriedade.estado].filter(Boolean).join("/");
+    rightLine.push(loc ? `${ctx.propriedade.nome} · ${loc}` : ctx.propriedade.nome);
+  }
+  if (ctx.email) rightLine.push(ctx.email);
+  if (rightLine.length) doc.text(rightLine.join("  ·  "), w - 12, 62, { align: "right" });
   doc.setTextColor(0, 0, 0);
 }
 
@@ -166,6 +188,122 @@ function drawFooter(doc: jsPDF) {
     doc.setTextColor(...BRAND.softInk);
     doc.text("ARNA · relatório gerado automaticamente — valide dados com um zootecnista", 12, h - 6);
     doc.text(`Pág. ${i}/${pages}`, w - 12, h - 6, { align: "right" });
+  }
+}
+
+/* --- Property cover + photo gallery helpers --- */
+
+async function drawPropertyCover(
+  doc: jsPDF,
+  ctx: ReportContext,
+  startY: number,
+): Promise<number> {
+  const p = ctx.propriedade;
+  if (!p) return startY;
+  const w = doc.internal.pageSize.getWidth();
+  const boxX = 12, boxW = w - 24;
+  const boxH = 46;
+
+  doc.setFillColor(...BRAND.card);
+  doc.roundedRect(boxX, startY, boxW, boxH, 2, 2, "F");
+
+  // Cover image (left)
+  const imgW = 58, imgH = 42;
+  const imgX = boxX + 2, imgY = startY + 2;
+  const cover = p.coverUrl ? await loadImageDataURL(p.coverUrl) : null;
+  if (cover) {
+    try { doc.addImage(cover, "JPEG", imgX, imgY, imgW, imgH); } catch {}
+  } else {
+    doc.setFillColor(...BRAND.stone);
+    doc.roundedRect(imgX, imgY, imgW, imgH, 1.5, 1.5, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    doc.text("Sem foto de capa", imgX + imgW / 2, imgY + imgH / 2, { align: "center" });
+  }
+
+  // Text (right)
+  const tX = imgX + imgW + 6;
+  const tW = boxX + boxW - tX - 4;
+  let ty = startY + 8;
+  doc.setTextColor(...BRAND.ink);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.text(p.nome, tX, ty);
+  ty += 5;
+  const loc = [p.cidade, p.estado, p.pais].filter(Boolean).join(" · ");
+  if (loc) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...BRAND.softInk);
+    doc.text(loc, tX, ty);
+    ty += 5;
+  }
+  const contatos = [
+    p.whatsapp ? `WhatsApp: ${p.whatsapp}` : "",
+    p.instagram ? `Instagram: ${p.instagram}` : "",
+  ].filter(Boolean).join("  ·  ");
+  if (contatos) {
+    doc.setFontSize(9);
+    doc.setTextColor(...BRAND.goldDeep);
+    doc.text(contatos, tX, ty);
+    ty += 5;
+  }
+  if (p.descricao) {
+    doc.setFontSize(9);
+    doc.setTextColor(...BRAND.ink);
+    const wrapped = doc.splitTextToSize(p.descricao, tW);
+    doc.text(wrapped.slice(0, 5), tX, ty);
+  }
+
+  return startY + boxH + 6;
+}
+
+async function drawPhotoGallery(doc: jsPDF, ctx: ReportContext) {
+  const photos = ctx.fotos ?? [];
+  if (!photos.length) return;
+  doc.addPage();
+  const w = doc.internal.pageSize.getWidth();
+  const h = doc.internal.pageSize.getHeight();
+
+  doc.setFillColor(...BRAND.ink);
+  doc.rect(0, 0, w, 14, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.text(`Galeria — ${ctx.propriedade?.nome ?? "Propriedade"}`, 12, 9);
+  doc.setFillColor(...BRAND.gold);
+  doc.rect(0, 14, w, 1.5, "F");
+
+  const cols = 3;
+  const gutter = 6;
+  const marginX = 12;
+  const cellW = (w - marginX * 2 - gutter * (cols - 1)) / cols;
+  const cellH = cellW * 0.72;
+  const captionH = 10;
+  const rowH = cellH + captionH + gutter;
+  let y = 22;
+
+  const max = Math.min(photos.length, 18);
+  for (let i = 0; i < max; i++) {
+    const col = i % cols;
+    if (col === 0 && i > 0) y += rowH;
+    if (y + rowH > h - 12) {
+      doc.addPage();
+      y = 14;
+    }
+    const x = marginX + col * (cellW + gutter);
+    const p = photos[i];
+    const data = await loadImageDataURL(p.url);
+    doc.setFillColor(...BRAND.card);
+    doc.roundedRect(x, y, cellW, cellH, 1.5, 1.5, "F");
+    if (data) {
+      try { doc.addImage(data, "JPEG", x, y, cellW, cellH); } catch {}
+    }
+    doc.setFontSize(8);
+    doc.setTextColor(...BRAND.softInk);
+    const cap = [p.category, p.caption].filter(Boolean).join(" · ") || " ";
+    const capLines = doc.splitTextToSize(cap, cellW);
+    doc.text(capLines.slice(0, 2), x, y + cellH + 4);
   }
 }
 
@@ -224,8 +362,9 @@ export async function exportLotePDF(
     qr,
   );
 
+  const afterCover = await drawPropertyCover(doc, ctx, 68);
   autoTable(doc, {
-    startY: 68,
+    startY: afterCover,
     theme: "grid",
     styles: { fontSize: 9, cellPadding: 2.2, textColor: BRAND.ink, lineColor: [220, 214, 195] },
     headStyles: { fillColor: BRAND.ink, textColor: [255, 255, 255], fontStyle: "bold" },
@@ -310,6 +449,8 @@ export async function exportLotePDF(
   }
 
   drawFooter(doc);
+  await drawPhotoGallery(doc, ctx);
+  drawFooter(doc);
   return doc.output("blob");
 }
 
@@ -334,6 +475,7 @@ export async function exportPlantelPDF(
     qr,
   );
 
+  const afterCover = await drawPropertyCover(doc, ctx, 68);
   const totCusto = lotes.reduce((s, l) => s + l.custoMes, 0);
   const totReceita = lotes.reduce((s, l) => s + l.receitaMes, 0);
   const totLucro = lotes.reduce((s, l) => s + l.lucroMes, 0);
@@ -341,7 +483,7 @@ export async function exportPlantelPDF(
   const totConsumoMes = lotes.reduce((s, l) => s + l.consumoMes, 0);
 
   autoTable(doc, {
-    startY: 68,
+    startY: afterCover,
     theme: "grid",
     styles: { fontSize: 8.5, cellPadding: 1.8 },
     headStyles: { fillColor: BRAND.ink, textColor: [255, 255, 255], fontStyle: "bold" },
@@ -412,6 +554,8 @@ export async function exportPlantelPDF(
   }
 
   drawFooter(doc);
+  await drawPhotoGallery(doc, ctx);
+  drawFooter(doc);
   return doc.output("blob");
 }
 
@@ -453,10 +597,25 @@ function makeMetaSheet(ctx: ReportContext, title: string) {
     ["Relatório", title],
     ["Produtor", ctx.produtor],
     ["E-mail", ctx.email ?? ""],
+    ["Propriedade", ctx.propriedade?.nome ?? ""],
+    ["Cidade/UF", [ctx.propriedade?.cidade, ctx.propriedade?.estado].filter(Boolean).join("/")],
+    ["WhatsApp", ctx.propriedade?.whatsapp ?? ""],
+    ["Instagram", ctx.propriedade?.instagram ?? ""],
+    ["Descrição", ctx.propriedade?.descricao ?? ""],
     ["Emitido em", fmtDateTime(new Date())],
     [],
     ["Observações", ctx.observacoes ?? ""],
   ]);
+}
+
+function appendFotosSheet(wb: XLSX.WorkBook, ctx: ReportContext) {
+  const fotos = ctx.fotos ?? [];
+  if (!fotos.length) return;
+  const ws = XLSX.utils.aoa_to_sheet([
+    ["Categoria", "Legenda", "URL"],
+    ...fotos.map((f) => [f.category ?? "", f.caption ?? "", f.url]),
+  ]);
+  XLSX.utils.book_append_sheet(wb, ws, "Fotos");
 }
 
 export function exportLoteXLSX(lote: ReportLote, ctx: ReportContext): Blob {
@@ -476,6 +635,7 @@ export function exportLoteXLSX(lote: ReportLote, ctx: ReportContext): Blob {
   ]);
   XLSX.utils.book_append_sheet(wb, wsVac, "Vacinas");
 
+  appendFotosSheet(wb, ctx);
   const out = XLSX.write(wb, { type: "array", bookType: "xlsx" });
   return new Blob([out], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -514,6 +674,7 @@ export function exportPlantelXLSX(lotes: ReportLote[], ctx: ReportContext): Blob
   );
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(vac), "Vacinas");
 
+  appendFotosSheet(wb, ctx);
   const out = XLSX.write(wb, { type: "array", bookType: "xlsx" });
   return new Blob([out], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

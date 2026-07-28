@@ -17,6 +17,7 @@ import {
   usePropertyPhotos,
   useAddPropertyPhoto,
   useSignedUrl,
+  signPath,
   uploadToBucket,
   type Property,
   type PropertyPhoto,
@@ -375,6 +376,7 @@ function AguiarAppInner({
           produtor={(user.user_metadata as { full_name?: string })?.full_name || acctLabel}
           email={user.email ?? undefined}
           session={session}
+          activeProperty={active}
         />
       </section>
       <section className={`panel ${tab === "financeiro" ? "active" : ""}`}>
@@ -1357,10 +1359,12 @@ function PlantelPanel({
   produtor = "",
   email,
   session,
+  activeProperty,
 }: {
   produtor?: string;
   email?: string;
   session: ReturnType<typeof useSession>;
+  activeProperty?: Property | null;
 }) {
   const [precos, setPrecos] = useState({ milho: 1.4, soja: 2.2, nucleo: 8.5, calcario: 0.6 });
   const [animal, setAnimal] = useState<AnimalKey>("poultry");
@@ -1377,6 +1381,7 @@ function PlantelPanel({
   const trial = trialR.trial;
   const trialAnimaisAtuais = lotes.reduce((acc, l) => acc + (l.qtd || 0), 0);
   const trialAnimaisRestantes = Math.max(0, TRIAL_MAX_ANIMAIS - trialAnimaisAtuais);
+  const photosQ = usePropertyPhotos(activeProperty?.id ?? null);
 
   const phases = PHASES[animal];
 
@@ -1524,13 +1529,42 @@ function PlantelPanel({
     };
   }
 
-  function ctx(): ReportContext {
-    return {
+  async function ctx(): Promise<ReportContext> {
+    const base: ReportContext = {
       produtor: produtor || (email ? email.split("@")[0] : "Produtor ARNA"),
       email,
       logoUrl: arnaLogo.url,
       observacoes: obs,
     };
+    if (activeProperty) {
+      const [coverUrl, propLogoUrl] = await Promise.all([
+        signPath(activeProperty.photo_url),
+        signPath(activeProperty.logo_url),
+      ]);
+      base.propriedade = {
+        nome: activeProperty.name,
+        cidade: activeProperty.city,
+        estado: activeProperty.state,
+        pais: activeProperty.country,
+        descricao: activeProperty.description,
+        whatsapp: activeProperty.whatsapp,
+        instagram: activeProperty.instagram,
+        coverUrl,
+        logoUrl: propLogoUrl,
+      };
+    }
+    const photos = photosQ.data ?? [];
+    if (photos.length) {
+      const signed = await Promise.all(
+        photos.slice(0, 18).map(async (p) => ({
+          url: (await signPath(p.url)) ?? "",
+          caption: p.caption,
+          category: p.category,
+        })),
+      );
+      base.fotos = signed.filter((p) => p.url);
+    }
+    return base;
   }
 
   async function loteAction(
@@ -1545,7 +1579,7 @@ function PlantelPanel({
     setBusy(key);
     try {
       const r = toReport(l);
-      const c = ctx();
+      const c = await ctx();
       const base = `arna-lote-${slug(l.lote.nome)}`;
       if (kind === "xlsx") {
         downloadBlob(exportLoteXLSX(r, c), `${base}.xlsx`);
@@ -1572,7 +1606,7 @@ function PlantelPanel({
     setBusy(key);
     try {
       const rs = linhas.map(toReport);
-      const c = ctx();
+      const c = await ctx();
       const base = `arna-plantel-${new Date().toISOString().slice(0, 10)}`;
       if (kind === "xlsx") {
         downloadBlob(exportPlantelXLSX(rs, c), `${base}.xlsx`);
