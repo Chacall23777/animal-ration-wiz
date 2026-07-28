@@ -43,13 +43,31 @@ export const grantAccess = createServerFn({ method: "POST" })
     });
     if (!isAdmin) throw new Error("Forbidden");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: prof, error: pErr } = await supabaseAdmin
+    const email = data.email.toLowerCase();
+    let { data: prof, error: pErr } = await supabaseAdmin
       .from("profiles")
       .select("id")
-      .eq("email", data.email.toLowerCase())
+      .eq("email", email)
       .maybeSingle();
     if (pErr) throw pErr;
-    if (!prof) throw new Error("Usuário ainda não cadastrado — peça para se cadastrar primeiro.");
+    if (!prof) {
+      // Convida o usuário via Auth Admin. O trigger handle_new_user cria o profile.
+      const { data: invited, error: inviteErr } =
+        await supabaseAdmin.auth.admin.inviteUserByEmail(email);
+      if (inviteErr) {
+        // Fallback: cria o usuário direto se o convite falhar (ex.: e-mail já existe em auth.users).
+        const { data: created, error: createErr } =
+          await supabaseAdmin.auth.admin.createUser({ email, email_confirm: true });
+        if (createErr) throw new Error(`Não foi possível cadastrar ${email}: ${inviteErr.message}`);
+        prof = { id: created.user!.id } as { id: string };
+      } else {
+        prof = { id: invited.user!.id } as { id: string };
+      }
+      // Garante o profile mesmo que o trigger não tenha rodado ainda.
+      await supabaseAdmin
+        .from("profiles")
+        .upsert({ id: prof.id as string, email }, { onConflict: "id" });
+    }
     const until = new Date(Date.now() + data.days * 86400_000).toISOString();
     const manualId = `manual_${prof.id as string}`;
     const { error } = await supabaseAdmin.from("subscriptions").upsert(
