@@ -189,6 +189,46 @@ function AuthPage() {
       )}
 
       {screen === "denied" && (
+        null
+      )}
+      {screen === "trial" && (
+        <div className="box login-box" style={{ maxWidth: 460, margin: "24px auto" }}>
+          <h4 style={{ marginTop: 0 }}>Quero testar o ARNAR</h4>
+          <p className="disclaimer" style={{ marginBottom: 12 }}>
+            Crie sua conta em 30 segundos. No próximo passo você cadastra o cartão para
+            liberar os <b>7 dias grátis</b>. No 8º dia é feita uma <b>única cobrança de R$ 97</b>
+            e seu acesso passa a ser <b>vitalício</b>. Cancele antes do 8º dia sem custo.
+          </p>
+          <form onSubmit={submitTrial}>
+            <div className="field">
+              <label>Nome completo</label>
+              <input required value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Seu nome" />
+            </div>
+            <div className="field">
+              <label>E-mail</label>
+              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" />
+            </div>
+            <div className="field">
+              <label>Senha</label>
+              <input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="mín. 6 caracteres" />
+            </div>
+            {err && <p className="disclaimer warn">{err}</p>}
+            <button className="btn" disabled={busy} type="submit" style={{
+              width: "100%",
+              background: "linear-gradient(135deg,#d4a72c,#8f6d1f)",
+              color: "#111",
+              border: "1px solid #8f6d1f",
+              fontWeight: 700,
+            }}>
+              {busy ? "…" : "Continuar para o cartão"}
+            </button>
+          </form>
+          <p className="disclaimer" style={{ marginTop: 12 }}>
+            <a href="#" onClick={(e) => { e.preventDefault(); setScreen("choice"); setErr(""); }}>← Voltar</a>
+          </p>
+        </div>
+      )}
+      {screen === "denied" && (
         <div className="box login-box" style={{ maxWidth: 460, margin: "24px auto" }}>
           <h4 style={{ marginTop: 0 }}>Email não autorizado</h4>
           <p className="disclaimer">
