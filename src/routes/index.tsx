@@ -220,7 +220,8 @@ function AguiarAppInner({
   tab: TabKey;
   setTab: (t: TabKey) => void;
 }) {
-  const propsQ = useProperties(session.user!.id);
+  const user = session.user;
+  const propsQ = useProperties(user?.id);
   const { active, select } = useActiveProperty(propsQ.data);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showNewProperty, setShowNewProperty] = useState(false);
@@ -230,6 +231,8 @@ function AguiarAppInner({
       setShowOnboarding(true);
     }
   }, [propsQ.isSuccess, propsQ.data]);
+
+  if (!user) return null;
 
   return (
     <div className="wrap">
@@ -338,7 +341,7 @@ function AguiarAppInner({
 
       <section className={`panel ${tab === "inicio" ? "active" : ""}`}>
         <InicioPanel
-          produtor={session.user.user_metadata?.full_name || acctLabel}
+          produtor={(user.user_metadata as { full_name?: string })?.full_name || acctLabel}
           onGoTo={setTab}
         />
       </section>
@@ -347,8 +350,8 @@ function AguiarAppInner({
       </section>
       <section className={`panel ${tab === "plantel" ? "active" : ""}`}>
         <PlantelPanel
-          produtor={session.user.user_metadata?.full_name || acctLabel}
-          email={session.user.email ?? undefined}
+          produtor={(user.user_metadata as { full_name?: string })?.full_name || acctLabel}
+          email={user.email ?? undefined}
           session={session}
         />
       </section>
