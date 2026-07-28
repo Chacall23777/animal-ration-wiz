@@ -289,6 +289,7 @@ function AguiarApp() {
         <PlantelPanel
           produtor={session.user.user_metadata?.full_name || acctLabel}
           email={session.user.email ?? undefined}
+          session={session}
         />
       </section>
       <section className={`panel ${tab === "financeiro" ? "active" : ""}`}>
