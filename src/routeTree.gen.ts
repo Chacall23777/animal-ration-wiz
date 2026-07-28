@@ -9,18 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CheckoutReturnRouteImport } from './routes/checkout.return'
 
-const CheckoutRoute = CheckoutRouteImport.update({
-  id: '/checkout',
-  path: '/checkout',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CheckoutReturnRoute = CheckoutReturnRouteImport.update({
@@ -60,18 +60,18 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/checkout': {
-      id: '/checkout'
-      path: '/checkout'
-      fullPath: '/checkout'
-      preLoaderRoute: typeof CheckoutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/checkout/return': {
