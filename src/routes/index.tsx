@@ -2772,15 +2772,17 @@ function ProdutorProfileBox({ userId }: { userId: string }) {
   return (
     <div className="box">
       <h4>Perfil do produtor</h4>
-      <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
         <SignedImg path={profQ.data?.avatar_url} alt="Avatar" size={72} radius={999} />
         <div>
           <label className="btn ghost" style={{ cursor: "pointer" }}>
             {busy ? "Enviando…" : "Trocar foto"}
             <input type="file" accept="image/*" onChange={onAvatar} style={{ display: "none" }} />
           </label>
-          <div className="mono" style={{ fontSize: 11, color: "var(--ink-soft,#666)", marginTop: 4 }}>{profQ.data?.email}</div>
         </div>
+      </div>
+      <div className="mono" style={{ fontSize: 11, color: "var(--ink-soft,#666)", margin: "0 0 14px" }}>
+        {profQ.data?.email}
       </div>
       <div className="form-grid" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))" }}>
         <div className="field">
