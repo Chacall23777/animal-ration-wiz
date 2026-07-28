@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export type ArnaMemory = {
   species?: string;
@@ -52,13 +53,24 @@ function systemPrompt(memory: ArnaMemory | undefined, pro: boolean): string {
 }
 
 export const arnaChat = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: ChatInput) => {
     if (!Array.isArray(data?.messages) || data.messages.length === 0) {
       throw new Error("messages requerido");
     }
     return data;
   })
-  .handler(async ({ data }): Promise<ChatResult> => {
+  .handler(async ({ data, context }): Promise<ChatResult> => {
+    const { supabase, userId } = context;
+
+    // Verificar assinatura ativa no servidor (não confiar na UI)
+    const { data: allowed, error: subErr } = await supabase.rpc("has_active_subscription", {
+      _user_id: userId,
+    });
+    if (subErr || !allowed) {
+      return { error: "Assinatura ativa necessária para usar o ARNA AI.", code: 403 };
+    }
+
     const key = process.env.LOVABLE_API_KEY;
     if (!key) return { error: "LOVABLE_API_KEY não configurada." };
 
@@ -84,27 +96,28 @@ export const arnaChat = createServerFn({ method: "POST" })
       });
 
       if (res.status === 429) {
-        await logAudit({ clientId: data.clientId, pro: !!data.pro, question: lastUser, status: "rate_limited", durationMs: Date.now() - startedAt });
+        await logAudit({ userId, clientId: data.clientId, pro: !!data.pro, question: lastUser, status: "rate_limited", durationMs: Date.now() - startedAt });
         return { error: "Muitas requisições. Aguarde um instante e tente novamente.", code: 429 };
       }
       if (res.status === 402) {
-        await logAudit({ clientId: data.clientId, pro: !!data.pro, question: lastUser, status: "credits_exhausted", durationMs: Date.now() - startedAt });
+        await logAudit({ userId, clientId: data.clientId, pro: !!data.pro, question: lastUser, status: "credits_exhausted", durationMs: Date.now() - startedAt });
         return { error: "Créditos de IA esgotados na workspace. Recarregue em Configurações → Planos e créditos.", code: 402 };
       }
       if (!res.ok) {
         const txt = await res.text().catch(() => "");
-        await logAudit({ clientId: data.clientId, pro: !!data.pro, question: lastUser, status: `http_${res.status}`, errorSnippet: txt.slice(0, 200), durationMs: Date.now() - startedAt });
+        await logAudit({ userId, clientId: data.clientId, pro: !!data.pro, question: lastUser, status: `http_${res.status}`, errorSnippet: txt.slice(0, 200), durationMs: Date.now() - startedAt });
         return { error: `Falha na IA (${res.status}): ${txt.slice(0, 200)}` };
       }
 
       const json = await res.json();
       const reply: string = json?.choices?.[0]?.message?.content ?? "";
       if (!reply) {
-        await logAudit({ clientId: data.clientId, pro: !!data.pro, question: lastUser, status: "empty_reply", durationMs: Date.now() - startedAt });
+        await logAudit({ userId, clientId: data.clientId, pro: !!data.pro, question: lastUser, status: "empty_reply", durationMs: Date.now() - startedAt });
         return { error: "Resposta vazia da IA." };
       }
       const usage = json?.usage;
       await logAudit({
+        userId,
         clientId: data.clientId,
         pro: !!data.pro,
         question: lastUser,
@@ -118,12 +131,13 @@ export const arnaChat = createServerFn({ method: "POST" })
       });
       return { reply };
     } catch (err) {
-      await logAudit({ clientId: data.clientId, pro: !!data.pro, question: lastUser, status: "exception", errorSnippet: err instanceof Error ? err.message : String(err), durationMs: Date.now() - startedAt });
+      await logAudit({ userId, clientId: data.clientId, pro: !!data.pro, question: lastUser, status: "exception", errorSnippet: err instanceof Error ? err.message : String(err), durationMs: Date.now() - startedAt });
       return { error: err instanceof Error ? err.message : "Erro desconhecido." };
     }
   });
 
 async function logAudit(entry: {
+  userId?: string;
   clientId?: string;
   pro: boolean;
   question: string;
@@ -143,6 +157,7 @@ async function logAudit(entry: {
     const { createClient } = await import("@supabase/supabase-js");
     const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
     await admin.from("audit_logs").insert({
+      user_id: entry.userId ?? null,
       client_id: entry.clientId ?? null,
       action: "arna_chat",
       resource: entry.pro ? "arna_ai_pro" : "arna_ai",
