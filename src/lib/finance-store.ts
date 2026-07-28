@@ -35,23 +35,34 @@ export const CATEGORIAS: Record<TxCategory, { label: string; kind: TxKind }> = {
 };
 
 const KEY = "arna_finance_v1";
+let scope: string | null = null;
+function key() { return scope ? `${KEY}::${scope}` : KEY; }
 const listeners = new Set<() => void>();
 let state: Transacao[] = [];
 let initialized = false;
 
 function read(): Transacao[] {
   if (typeof window === "undefined") return [];
-  try { return JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { return []; }
+  try { return JSON.parse(localStorage.getItem(key()) || "[]"); } catch { return []; }
 }
-function write(v: Transacao[]) { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch {} }
+function write(v: Transacao[]) { try { localStorage.setItem(key(), JSON.stringify(v)); } catch {} }
 function emit() { for (const l of listeners) l(); }
 function ensureInit() {
   if (initialized || typeof window === "undefined") return;
   state = read();
   initialized = true;
   window.addEventListener("storage", (e) => {
-    if (e.key === KEY) { state = read(); emit(); }
+    if (e.key === key()) { state = read(); emit(); }
   });
+}
+
+export function setFinanceScope(newScope: string | null) {
+  if (scope === newScope) return;
+  scope = newScope;
+  if (typeof window === "undefined") { initialized = false; return; }
+  state = read();
+  initialized = true;
+  emit();
 }
 
 export function setTransacoes(next: Transacao[] | ((p: Transacao[]) => Transacao[])) {

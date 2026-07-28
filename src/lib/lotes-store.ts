@@ -32,6 +32,10 @@ export type EstoqueRacao = { kg: number; precoKg: number };
 const LOTES_KEY = "arna_lotes_v1";
 const ESTOQUE_KEY = "arna_estoque_racao_v1";
 
+let scope: string | null = null;
+function lotesKey() { return scope ? `${LOTES_KEY}::${scope}` : LOTES_KEY; }
+function estoqueKey() { return scope ? `${ESTOQUE_KEY}::${scope}` : ESTOQUE_KEY; }
+
 type State = { lotes: Lote[]; estoque: EstoqueRacao };
 const listeners = new Set<() => void>();
 
@@ -58,29 +62,41 @@ function emit() {
 function ensureInit() {
   if (initialized || typeof window === "undefined") return;
   state = {
-    lotes: readLS<Lote[]>(LOTES_KEY, []),
-    estoque: readLS<EstoqueRacao>(ESTOQUE_KEY, { kg: 0, precoKg: 1.6 }),
+    lotes: readLS<Lote[]>(lotesKey(), []),
+    estoque: readLS<EstoqueRacao>(estoqueKey(), { kg: 0, precoKg: 1.6 }),
   };
   initialized = true;
   window.addEventListener("storage", (e) => {
-    if (e.key === LOTES_KEY) {
-      state = { ...state, lotes: readLS<Lote[]>(LOTES_KEY, []) };
+    if (e.key === lotesKey()) {
+      state = { ...state, lotes: readLS<Lote[]>(lotesKey(), []) };
       emit();
-    } else if (e.key === ESTOQUE_KEY) {
+    } else if (e.key === estoqueKey()) {
       state = {
         ...state,
-        estoque: readLS<EstoqueRacao>(ESTOQUE_KEY, { kg: 0, precoKg: 1.6 }),
+        estoque: readLS<EstoqueRacao>(estoqueKey(), { kg: 0, precoKg: 1.6 }),
       };
       emit();
     }
   });
 }
 
+export function setLotesScope(newScope: string | null) {
+  if (scope === newScope) return;
+  scope = newScope;
+  if (typeof window === "undefined") { initialized = false; return; }
+  state = {
+    lotes: readLS<Lote[]>(lotesKey(), []),
+    estoque: readLS<EstoqueRacao>(estoqueKey(), { kg: 0, precoKg: 1.6 }),
+  };
+  initialized = true;
+  emit();
+}
+
 export function setLotes(next: Lote[] | ((prev: Lote[]) => Lote[])) {
   ensureInit();
   const value = typeof next === "function" ? (next as (p: Lote[]) => Lote[])(state.lotes) : next;
   state = { ...state, lotes: value };
-  writeLS(LOTES_KEY, value);
+  writeLS(lotesKey(), value);
   emit();
 }
 
@@ -88,7 +104,7 @@ export function setEstoque(next: EstoqueRacao | ((p: EstoqueRacao) => EstoqueRac
   ensureInit();
   const value = typeof next === "function" ? (next as (p: EstoqueRacao) => EstoqueRacao)(state.estoque) : next;
   state = { ...state, estoque: value };
-  writeLS(ESTOQUE_KEY, value);
+  writeLS(estoqueKey(), value);
   emit();
 }
 
