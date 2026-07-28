@@ -475,10 +475,7 @@ function PlantelPanel({
   const [pesoInicial, setPesoInicial] = useState(0.05);
   const [pesoAlvo, setPesoAlvo] = useState(1.8);
   const [mortalidadePct, setMortalidadePct] = useState(3);
-  const [lotes, setLotes] = useState<Lote[]>([]);
-
-  useEffect(() => { setLotes(loadLotes()); }, []);
-  useEffect(() => { saveLotes(lotes); }, [lotes]);
+  const { lotes } = useLotesStore();
 
   const phases = PHASES[animal];
 
