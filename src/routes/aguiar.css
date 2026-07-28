@@ -245,3 +245,23 @@ input,select,textarea,button{font-size:16px;}
 @media (max-width:640px){
   html{-webkit-text-size-adjust:100%;}
 }
+
+/* Plantel — lote cards */
+.lote-cards{display:grid;gap:14px;margin-top:10px;}
+.lote-card{border:1px solid var(--line,#e0d9c8);border-radius:12px;padding:14px;background:#fffdf7;}
+.lote-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+.lote-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px 14px;}
+.lote-grid > div{display:flex;flex-direction:column;padding:6px 0;border-bottom:1px dashed #ece5d0;}
+.lote-grid span{font-size:11px;color:var(--ink-soft,#7a725f);text-transform:uppercase;letter-spacing:.03em;}
+.lote-grid b{font-size:14px;font-variant-numeric:tabular-nums;}
+.lote-actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;}
+.lote-vacinas{margin-top:10px;}
+.lote-vacinas summary{cursor:pointer;font-weight:600;padding:6px 0;}
+.lote-vacinas ul{list-style:none;padding:0;margin:6px 0 0;}
+.lote-vacinas li{padding:4px 0;border-bottom:1px dashed #ece5d0;}
+.lote-vacinas label{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;}
+.lote-vacinas em{color:var(--ink-soft,#7a725f);font-style:normal;font-size:12px;}
+.lote-vacinas b{color:var(--good,#2e5b3a);}
+.profit-pos{color:var(--good,#2e5b3a);}
+.profit-neg{color:var(--bad,#a02020);}
+@media(max-width:640px){.lote-grid{grid-template-columns:1fr 1fr;}}
