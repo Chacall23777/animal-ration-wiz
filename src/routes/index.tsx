@@ -251,7 +251,7 @@ function PaywallScreen({
         <img src={arnaLogo.url} alt="ARNA — Nutrição Animal Inteligente" className="paywall-logo" />
       </div>
       <h1 className="paywall-title">AGUIAR NUTRIÇÃO ANIMAL</h1>
-      <div className="tag paywall-tag">Consultoria Rural · Rogério Aguiar</div>
+      <div className="tag paywall-tag">Consultoria Rural · Rogério r</div>
       <p className="paywall-copy">
         Calculadora de ração, gestão de plantel e consultor IA para avicultura e suinocultura. Entre
         com sua conta ou assine para liberar o app completo.
