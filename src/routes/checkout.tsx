@@ -1,4 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { StripeEmbeddedCheckout } from "@/components/StripeEmbeddedCheckout";
 import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 
@@ -20,6 +22,23 @@ export const Route = createFileRoute("/checkout")({
 
 function CheckoutPage() {
   const { plan, email } = Route.useSearch();
+  const navigate = useNavigate();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | undefined>(email);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) {
+        void navigate({ to: "/auth" });
+        return;
+      }
+      setUserId(data.user.id);
+      setUserEmail(data.user.email ?? email);
+      setReady(true);
+    });
+  }, [navigate, email]);
+
   const priceId = plan === "aguiar_anual" ? "aguiar_anual" : "aguiar_mensal";
   const label = priceId === "aguiar_anual" ? "Anual — R$ 500/ano" : "Mensal — R$ 50/mês";
   const returnUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/checkout/return?plan=${priceId}&session_id={CHECKOUT_SESSION_ID}`;
@@ -32,7 +51,11 @@ function CheckoutPage() {
           <h2 style={{ margin: 0 }}>Assinar Aguiar — {label}</h2>
           <Link to="/" style={{ color: "var(--ink-soft, #666)" }}>← Voltar</Link>
         </div>
-        <StripeEmbeddedCheckout priceId={priceId} customerEmail={email} returnUrl={returnUrl} />
+        {ready && userId ? (
+          <StripeEmbeddedCheckout priceId={priceId} customerEmail={userEmail} userId={userId} returnUrl={returnUrl} />
+        ) : (
+          <p style={{ padding: 20 }}>Carregando…</p>
+        )}
       </div>
     </div>
   );

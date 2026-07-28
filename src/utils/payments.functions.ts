@@ -7,6 +7,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
   .inputValidator((data: {
     priceId: string;
     customerEmail?: string;
+    userId?: string;
     returnUrl: string;
     environment: StripeEnv;
   }) => {
@@ -28,144 +29,14 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         return_url: data.returnUrl,
         automatic_tax: { enabled: true },
         ...(data.customerEmail && { customer_email: data.customerEmail }),
+        ...(data.userId && {
+          metadata: { userId: data.userId },
+          ...(isRecurring && { subscription_data: { metadata: { userId: data.userId } } }),
+        }),
       });
 
       return { clientSecret: session.client_secret ?? "" };
     } catch (error) {
       return { error: getStripeErrorMessage(error) };
     }
-  });import { createSupabaseAdminClient }
-from "@/lib/supabase.server";type ConfirmResult = {
-
-activated:true;
-validUntil:string | null;
-
-}
-
-|
-
-{
-
-error:string;
-
-};export const confirmCheckoutSession =
-createServerFn({
-
-method:"POST"
-
-})
-
-.inputValidator(
-
-(data:{
-
-sessionId:string;
-environment:StripeEnv;
-userId:string;
-
-})=>{
-
-return data;
-
-}
-
-)
-
-.handler(async({data})=>{
-
-try{
-
-const stripe=
-createStripeClient(
-data.environment
-);
-
-
-const session=
-await stripe.checkout.sessions.retrieve(
-
-data.sessionId,
-
-{
-
-expand:["subscription"]
-
-}
-
-);
-
-
-const paid=
-
-session.payment_status==="paid"
-
-||
-
-session.status==="complete";
-
-
-if(!paid){
-
-return{
-
-error:"Pagamento não confirmado."
-
-};
-
-}
-
-
-const validUntil=
-new Date();
-
-validUntil.setDate(
-validUntil.getDate()+30
-);
-
-
-const supabaseAdmin=
-createSupabaseAdminClient();
-
-
-await supabaseAdmin
-
-.from("subscribers")
-
-.update({
-
-valid_until:
-validUntil.toISOString(),
-
-updated_at:
-new Date().toISOString(),
-
-})
-
-.eq(
-
-"id",
-data.userId
-
-);
-
-
-return{
-
-activated:true,
-validUntil:
-validUntil.toISOString()
-
-};
-
-}catch(error){
-
-return{
-
-error:
-getStripeErrorMessage(error)
-
-};
-
-}
-
-});
+  });
