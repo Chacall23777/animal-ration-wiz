@@ -44,6 +44,39 @@ export type Database = {
         }
         Relationships: []
       }
+      pending_access: {
+        Row: {
+          created_at: string
+          days: number
+          email: string
+          granted_by: string | null
+          id: string
+          lifetime: boolean
+          updated_at: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          days?: number
+          email: string
+          granted_by?: string | null
+          id?: string
+          lifetime?: boolean
+          updated_at?: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          days?: number
+          email?: string
+          granted_by?: string | null
+          id?: string
+          lifetime?: boolean
+          updated_at?: string
+          used_at?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
