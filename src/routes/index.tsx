@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import "./aguiar.css";
 import arnaLogo from "@/assets/arna-logo.png.asset.json";
+import { arnaChat, type ArnaMemory, type ArnaChatMsg } from "@/utils/arna-chat.functions";
 
 export const Route = createFileRoute("/")({
   component: AguiarApp,
@@ -709,56 +710,102 @@ const SUGGESTIONS = [
   "Ração para terminação de suínos: cuidados",
 ];
 
-function mockAnswer(q: string): string {
-  const s = q.toLowerCase();
-  if (s.includes("mortalidade") || s.includes("pintainha")) {
-    return "Para reduzir mortalidade em pintainhas:\n• Temperatura inicial 32–34 °C, reduzindo 2–3 °C por semana.\n• Água limpa e ração pré-inicial disponível nas primeiras 24 h.\n• Densidade máxima 25–30 aves/m² na primeira semana.\n• Vacinação (Marek, Gumboro, Newcastle) conforme calendário regional.\n\nSe a mortalidade passar de 2% na 1ª semana, procure um veterinário.";
-  }
-  if (s.includes("cálcio") || s.includes("calcio") || s.includes("casca")) {
-    return "Deficiência de cálcio em poedeiras:\n• Ovos com casca fina, quebradiça ou deformada.\n• Queda na postura e ovos sem casca.\n• Aves com pernas fracas, dificuldade de locomoção.\n\nCorreção: elevar cálcio da ração para 3,8–4,2% na fase de postura, oferecer calcário calcítico grosso à parte no final da tarde.";
-  }
-  if (s.includes("terminação") || s.includes("terminacao") || s.includes("suín")) {
-    return "Terminação de suínos (70–110 kg):\n• Proteína bruta 15–16%, lisina 0,85%.\n• Milho e farelo de soja como base, núcleo específico de terminação.\n• Evitar excesso proteico (custo alto + gordura abdominal).\n• Água fresca à vontade — consumo dobra em relação à ração.\n\nConversão alimentar esperada: 2,8–3,2 kg ração/kg ganho.";
-  }
-  return "Boa pergunta! Como consultor de nutrição, recomendo detalhar: qual espécie, fase e sintoma/objetivo específico? Assim consigo orientar dosagens de ração, manejo e sinais de alerta. (Este consultor é um protótipo — para casos clínicos, procure um MV.)";
+const MEMORY_KEY = "arna_memory_v1";
+const HISTORY_KEY = "arna_history_v1";
+
+function loadMemory(): ArnaMemory {
+  if (typeof window === "undefined") return {};
+  try { return JSON.parse(localStorage.getItem(MEMORY_KEY) || "{}"); } catch { return {}; }
+}
+function saveMemory(m: ArnaMemory) {
+  try { localStorage.setItem(MEMORY_KEY, JSON.stringify(m)); } catch {}
+}
+function loadHistory(): Msg[] {
+  if (typeof window === "undefined") return [];
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch { return []; }
+}
+function saveHistory(m: Msg[]) {
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(m.slice(-40))); } catch {}
 }
 
 function ChatPanel() {
-  const [msgs, setMsgs] = useState<Msg[]>([
+  const initialMsgs: Msg[] = [
     {
       who: "system-note",
-      text: "Converse com o consultor sobre nutrição e manejo de postura e suínos.",
+      text: "Sou o ARNA AI — consultor virtual em nutrição animal. Me conte espécie, plantel e objetivo, e eu ajudo com formulação, manejo e cálculos. Sua memória fica salva neste dispositivo.",
     },
-  ]);
+  ];
+  const [msgs, setMsgs] = useState<Msg[]>(() => {
+    const h = loadHistory();
+    return h.length ? h : initialMsgs;
+  });
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
+  const [pro, setPro] = useState(false);
+  const [memory, setMemory] = useState<ArnaMemory>(() => loadMemory());
+  const [showMem, setShowMem] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: "smooth" });
   }, [msgs, typing]);
 
-  function send(text: string) {
+  useEffect(() => { saveHistory(msgs); }, [msgs]);
+  useEffect(() => { saveMemory(memory); }, [memory]);
+
+  async function send(text: string) {
     const q = text.trim();
-    if (!q) return;
-    setMsgs((m) => [...m, { who: "user", text: q }]);
+    if (!q || typing) return;
+    const next: Msg[] = [...msgs, { who: "user", text: q }];
+    setMsgs(next);
     setInput("");
     setTyping(true);
-    setTimeout(
-      () => {
-        setMsgs((m) => [...m, { who: "ai", text: mockAnswer(q) }]);
-        setTyping(false);
-      },
-      700 + Math.random() * 600,
-    );
+
+    const history: ArnaChatMsg[] = next
+      .filter((m) => m.who === "user" || m.who === "ai")
+      .map((m) => ({ role: m.who === "user" ? "user" : "assistant", content: m.text }));
+
+    try {
+      const res = await arnaChat({ data: { messages: history, memory, pro } });
+      if ("error" in res) {
+        setMsgs((m) => [...m, { who: "system-note", text: `⚠ ${res.error}` }]);
+      } else {
+        setMsgs((m) => [...m, { who: "ai", text: res.reply }]);
+      }
+    } catch (err) {
+      setMsgs((m) => [...m, { who: "system-note", text: `⚠ ${err instanceof Error ? err.message : "Erro ao consultar a IA."}` }]);
+    } finally {
+      setTyping(false);
+    }
+  }
+
+  function clearChat() {
+    setMsgs(initialMsgs);
+    try { localStorage.removeItem(HISTORY_KEY); } catch {}
   }
 
   return (
     <div className="chat-wrap">
       <div className="chat-head">
-        <h4>Consultor IA — Postura & Suínos</h4>
-        <span>especialista em nutrição e manejo</span>
+        <div>
+          <h4>ARNA AI {pro && <span style={{ color: "var(--gold, #c89b3c)" }}>PRO</span>}</h4>
+          <span>consultor virtual em nutrição animal</span>
+        </div>
+        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+          <button className="btn" type="button" onClick={() => setPro((v) => !v)} style={{ padding: "6px 10px", fontSize: 12 }}>
+            {pro ? "Modo padrão" : "Modo PRO"}
+          </button>
+          <button className="btn" type="button" onClick={() => setShowMem((v) => !v)} style={{ padding: "6px 10px", fontSize: 12 }}>
+            {showMem ? "Fechar memória" : "Memória"}
+          </button>
+          <button className="btn" type="button" onClick={clearChat} style={{ padding: "6px 10px", fontSize: 12 }}>
+            Limpar
+          </button>
+        </div>
       </div>
+      {showMem && (
+        <MemoryEditor memory={memory} onChange={setMemory} />
+      )}
       <div className="chat-body" ref={bodyRef}>
         {msgs.map((m, i) => (
           <div key={i} className={`msg ${m.who}`}>
@@ -777,7 +824,7 @@ function ChatPanel() {
       </div>
       <div className="chat-suggestions">
         {SUGGESTIONS.map((s) => (
-          <button key={s} className="sugg-chip" onClick={() => send(s)}>
+          <button key={s} className="sugg-chip" onClick={() => send(s)} disabled={typing}>
             {s}
           </button>
         ))}
@@ -790,18 +837,53 @@ function ChatPanel() {
         }}
       >
         <input
-          placeholder="Pergunte ao consultor..."
+          placeholder="Pergunte ao ARNA AI..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          disabled={typing}
         />
-        <button className="btn" type="submit">
-          Enviar
+        <button className="btn" type="submit" disabled={typing}>
+          {typing ? "..." : "Enviar"}
         </button>
       </form>
       <p className="disclaimer warn" style={{ padding: "0 16px 14px" }}>
         * Este consultor oferece orientação geral. Não substitui a avaliação presencial de um médico
         veterinário, especialmente em casos de doença, mortalidade elevada ou uso de medicamentos.
       </p>
+    </div>
+  );
+}
+
+function MemoryEditor({ memory, onChange }: { memory: ArnaMemory; onChange: (m: ArnaMemory) => void }) {
+  const [m, setM] = useState<ArnaMemory>(memory);
+  useEffect(() => { setM(memory); }, [memory]);
+  const field = (k: keyof ArnaMemory, label: string, placeholder: string) => (
+    <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
+      <span style={{ color: "var(--ink-soft, #666)" }}>{label}</span>
+      <input
+        value={m[k] ?? ""}
+        placeholder={placeholder}
+        onChange={(e) => setM({ ...m, [k]: e.target.value })}
+        style={{ padding: "6px 8px", border: "1px solid rgba(0,0,0,.15)", borderRadius: 6 }}
+      />
+    </label>
+  );
+  return (
+    <div style={{ padding: 12, borderTop: "1px solid rgba(0,0,0,.08)", background: "rgba(0,0,0,.02)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+      {field("species", "Espécie(s)", "Ex.: suínos, poedeiras")}
+      {field("herdSize", "Tamanho do plantel", "Ex.: 250 animais")}
+      {field("avgWeight", "Peso médio / fase", "Ex.: 60 kg, terminação")}
+      {field("objectives", "Objetivos", "Ex.: reduzir custo, ganho de peso")}
+      {field("ingredients", "Ingredientes disponíveis", "Ex.: milho, farelo de soja")}
+      {field("notes", "Notas", "Preferências, restrições...")}
+      <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        <button type="button" className="btn" onClick={() => { onChange({}); setM({}); }} style={{ padding: "6px 10px", fontSize: 12 }}>
+          Apagar memória
+        </button>
+        <button type="button" className="btn" onClick={() => onChange(m)} style={{ padding: "6px 10px", fontSize: 12 }}>
+          Salvar
+        </button>
+      </div>
     </div>
   );
 }
