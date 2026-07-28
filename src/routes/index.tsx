@@ -155,7 +155,16 @@ function brl(n: number) {
 /* ============================================================ */
 
 function AguiarApp() {
-  const [tab, setTab] = useState<"calc" | "plantel" | "chat" | "conta">("calc");
+  const [tab, setTab] = useState<"inicio" | "calc" | "plantel" | "chat" | "conta">("inicio");
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    if (typeof window === "undefined") return "light";
+    return (localStorage.getItem("arna_theme") as "light" | "dark") || "light";
+  });
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.documentElement.setAttribute("data-theme", theme);
+    try { localStorage.setItem("arna_theme", theme); } catch {}
+  }, [theme]);
   const navigate = useNavigate();
   const session = useSession();
 
@@ -184,16 +193,32 @@ function AguiarApp() {
           className="meta"
           style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}
         >
-          <button className="acct-badge" onClick={() => setTab("conta")}>
-            <span className="dot" />
-            {acctLabel}
-          </button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              className="theme-toggle"
+              aria-label="Alternar modo claro/escuro"
+              title={theme === "dark" ? "Modo claro" : "Modo escuro"}
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            >
+              {theme === "dark" ? "☀️" : "🌙"}
+            </button>
+            <button className="acct-badge" onClick={() => setTab("conta")}>
+              <span className="dot" />
+              {acctLabel}
+            </button>
+          </div>
           <div>Calculadora · Plantel · 1 kg a 100 t</div>
         </div>
       </header>
 
       {/* TABS */}
       <nav className="tabs">
+        <button
+          className={`tab-btn ${tab === "inicio" ? "active" : ""}`}
+          onClick={() => setTab("inicio")}
+        >
+          Início
+        </button>
         <button
           className={`tab-btn ${tab === "calc" ? "active" : ""}`}
           onClick={() => setTab("calc")}
@@ -220,6 +245,12 @@ function AguiarApp() {
         </button>
       </nav>
 
+      <section className={`panel ${tab === "inicio" ? "active" : ""}`}>
+        <InicioPanel
+          produtor={session.user.user_metadata?.full_name || acctLabel}
+          onGoTo={setTab}
+        />
+      </section>
       <section className={`panel ${tab === "calc" ? "active" : ""}`}>
         <CalculadoraPanel />
       </section>
