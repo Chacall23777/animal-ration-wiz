@@ -27,6 +27,12 @@ import {
   type Vacina,
 } from "@/lib/lotes-store";
 import { SPECIES, SOON_SPECIES } from "@/lib/species";
+import {
+  useFinanceStore,
+  setTransacoes,
+  CATEGORIAS,
+  type TxCategory,
+} from "@/lib/finance-store";
 
 export const Route = createFileRoute("/")({
   component: AguiarApp,
@@ -155,7 +161,9 @@ function brl(n: number) {
 /* ============================================================ */
 
 function AguiarApp() {
-  const [tab, setTab] = useState<"inicio" | "calc" | "plantel" | "chat" | "conta">("inicio");
+  const [tab, setTab] = useState<
+    "inicio" | "calc" | "plantel" | "financeiro" | "sanitario" | "chat" | "conta"
+  >("inicio");
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     if (typeof window === "undefined") return "light";
     return (localStorage.getItem("arna_theme") as "light" | "dark") || "light";
@@ -232,6 +240,18 @@ function AguiarApp() {
           Meu Plantel
         </button>
         <button
+          className={`tab-btn ${tab === "financeiro" ? "active" : ""}`}
+          onClick={() => setTab("financeiro")}
+        >
+          Financeiro
+        </button>
+        <button
+          className={`tab-btn ${tab === "sanitario" ? "active" : ""}`}
+          onClick={() => setTab("sanitario")}
+        >
+          Sanitário
+        </button>
+        <button
           className={`tab-btn ${tab === "chat" ? "active" : ""}`}
           onClick={() => setTab("chat")}
         >
@@ -260,6 +280,12 @@ function AguiarApp() {
           email={session.user.email ?? undefined}
         />
       </section>
+      <section className={`panel ${tab === "financeiro" ? "active" : ""}`}>
+        <FinanceiroPanel />
+      </section>
+      <section className={`panel ${tab === "sanitario" ? "active" : ""}`}>
+        <SanitarioPanel />
+      </section>
       <section className={`panel ${tab === "chat" ? "active" : ""}`}>
         <ChatPanel />
       </section>
@@ -273,7 +299,14 @@ function AguiarApp() {
 /* ===================== TELA DE ASSINATURA (paywall) ===================== */
 
 /* ===================== DASHBOARD (INÍCIO) ===================== */
-type TabKey = "inicio" | "calc" | "plantel" | "chat" | "conta";
+type TabKey =
+  | "inicio"
+  | "calc"
+  | "plantel"
+  | "financeiro"
+  | "sanitario"
+  | "chat"
+  | "conta";
 
 type Alerta = {
   id: string;
@@ -620,6 +653,388 @@ function InicioPanel({
 }
 
 function PaywallScreen() {
+  return _PaywallScreenReal();
+}
+
+/* ===================== FINANCEIRO ===================== */
+function FinanceiroPanel() {
+  // dynamic imports live at top; require them via require-style is not needed since store is already imported below via useMemo
+  const { lotes } = useLotesStore();
+  const txs = useFinanceStore();
+  const [kind, setKind] = useState<"receita" | "despesa">("despesa");
+  const [categoria, setCategoria] = useState<TxCategory>("racao");
+  const [descricao, setDescricao] = useState("");
+  const [valor, setValor] = useState<number>(0);
+  const [data, setData] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [loteId, setLoteId] = useState<string>("");
+  const [mesRef, setMesRef] = useState<string>(() => new Date().toISOString().slice(0, 7));
+
+  // Ajusta categoria conforme tipo
+  useEffect(() => {
+    const validas = (Object.keys(CATEGORIAS) as TxCategory[]).filter((k) => CATEGORIAS[k].kind === kind);
+    if (!validas.includes(categoria)) setCategoria(validas[0]);
+  }, [kind]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function add() {
+    if (!descricao.trim() || !valor) return alert("Preencha descrição e valor.");
+    setTransacoes((prev) => [
+      {
+        id: `tx-${Date.now()}`,
+        data,
+        kind,
+        categoria,
+        descricao: descricao.trim(),
+        valor: Math.abs(valor),
+        loteId: loteId || undefined,
+      },
+      ...prev,
+    ]);
+    setDescricao("");
+    setValor(0);
+  }
+  function remover(id: string) {
+    setTransacoes((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  const doMes = useMemo(() => txs.filter((t) => t.data.startsWith(mesRef)), [txs, mesRef]);
+  const totMes = useMemo(() => {
+    const r = doMes.filter((t) => t.kind === "receita").reduce((a, t) => a + t.valor, 0);
+    const d = doMes.filter((t) => t.kind === "despesa").reduce((a, t) => a + t.valor, 0);
+    return { receita: r, despesa: d, lucro: r - d };
+  }, [doMes]);
+
+  // agrupar por categoria (despesas do mês)
+  const porCategoria = useMemo(() => {
+    const map = new Map<TxCategory, number>();
+    for (const t of doMes.filter((t) => t.kind === "despesa")) {
+      map.set(t.categoria, (map.get(t.categoria) || 0) + t.valor);
+    }
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+  }, [doMes]);
+
+  // últimos 6 meses
+  const serieMeses = useMemo(() => {
+    const now = new Date();
+    const arr: { mes: string; label: string; receita: number; despesa: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = d.toLocaleDateString("pt-BR", { month: "short" });
+      const rec = txs.filter((t) => t.data.startsWith(key) && t.kind === "receita").reduce((a, t) => a + t.valor, 0);
+      const des = txs.filter((t) => t.data.startsWith(key) && t.kind === "despesa").reduce((a, t) => a + t.valor, 0);
+      arr.push({ mes: key, label, receita: rec, despesa: des });
+    }
+    return arr;
+  }, [txs]);
+
+  const maxSerie = Math.max(1, ...serieMeses.map((m) => Math.max(m.receita, m.despesa)));
+
+  const catOptions = (Object.keys(CATEGORIAS) as TxCategory[]).filter((k) => CATEGORIAS[k].kind === kind);
+
+  return (
+    <>
+      <div className="box hero-box">
+        <div className="hero-flex">
+          <div>
+            <div className="hero-eyebrow">Financeiro</div>
+            <h4 className="hero-title">Controle receitas e despesas do seu plantel</h4>
+            <div className="sub">Categorize entradas e saídas, veja o lucro do mês e a evolução dos últimos 6 meses.</div>
+          </div>
+          <div className="hero-cta">
+            <input
+              type="month"
+              value={mesRef}
+              onChange={(e) => setMesRef(e.target.value)}
+              style={{ padding: "8px 12px", borderRadius: 8, border: "1.5px solid var(--line)", background: "var(--surface)", color: "var(--ink)" }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+        <div className="kpi-card">
+          <div className="kpi-lbl">Receita do mês</div>
+          <div className="kpi-val profit-pos">{brl(totMes.receita)}</div>
+          <div className="kpi-sub">{doMes.filter((t) => t.kind === "receita").length} lançamentos</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-lbl">Despesas do mês</div>
+          <div className="kpi-val profit-neg">{brl(totMes.despesa)}</div>
+          <div className="kpi-sub">{doMes.filter((t) => t.kind === "despesa").length} lançamentos</div>
+        </div>
+        <div className="kpi-card kpi-primary">
+          <div className="kpi-lbl">Lucro do mês</div>
+          <div className={`kpi-val ${totMes.lucro >= 0 ? "profit-pos" : "profit-neg"}`}>{brl(totMes.lucro)}</div>
+          <div className="kpi-sub">Margem {totMes.receita ? ((totMes.lucro / totMes.receita) * 100).toFixed(1) : "0"}%</div>
+        </div>
+      </div>
+
+      <div className="box">
+        <h4>Últimos 6 meses</h4>
+        <div className="sub">Barras verdes = receitas · Barras vermelhas = despesas</div>
+        <div className="chart6">
+          {serieMeses.map((m) => (
+            <div key={m.mes} className="chart6-col">
+              <div className="chart6-bars">
+                <div
+                  className="chart6-bar rec"
+                  style={{ height: `${(m.receita / maxSerie) * 100}%` }}
+                  title={`Receita ${brl(m.receita)}`}
+                />
+                <div
+                  className="chart6-bar des"
+                  style={{ height: `${(m.despesa / maxSerie) * 100}%` }}
+                  title={`Despesa ${brl(m.despesa)}`}
+                />
+              </div>
+              <div className="chart6-lbl">{m.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="box">
+        <h4>Novo lançamento</h4>
+        <div className="sub">Categorias de despesa (ração, vacinas, mão de obra…) e receita (venda de animais, ovos…).</div>
+        <div className="form-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+          <div className="field">
+            <label>Tipo</label>
+            <div className="unit-toggle" style={{ display: "inline-flex" }}>
+              <button className={kind === "despesa" ? "active" : ""} onClick={() => setKind("despesa")}>Despesa</button>
+              <button className={kind === "receita" ? "active" : ""} onClick={() => setKind("receita")}>Receita</button>
+            </div>
+          </div>
+          <div className="field">
+            <label>Categoria</label>
+            <select value={categoria} onChange={(e) => setCategoria(e.target.value as TxCategory)}>
+              {catOptions.map((k) => (
+                <option key={k} value={k}>{CATEGORIAS[k].label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label>Descrição</label>
+            <input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Ex.: 10 sacos ração 25kg" />
+          </div>
+          <div className="field">
+            <label>Valor (R$)</label>
+            <input type="number" min={0} step={0.01} value={valor} onChange={(e) => setValor(parseFloat(e.target.value) || 0)} />
+          </div>
+          <div className="field">
+            <label>Data</label>
+            <input type="date" value={data} onChange={(e) => setData(e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Lote (opcional)</label>
+            <select value={loteId} onChange={(e) => setLoteId(e.target.value)}>
+              <option value="">— sem lote —</option>
+              {lotes.map((l) => (
+                <option key={l.id} value={l.id}>{l.nome}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <button className="btn" onClick={add}>Adicionar</button>
+        </div>
+      </div>
+
+      {porCategoria.length > 0 && (
+        <div className="box">
+          <h4>Despesas por categoria · {mesRef}</h4>
+          <div className="cat-list">
+            {porCategoria.map(([k, v]) => (
+              <div key={k} className="cat-row">
+                <div className="cat-name">{CATEGORIAS[k].label}</div>
+                <div className="cat-bar">
+                  <div className="cat-bar-fill" style={{ width: `${(v / totMes.despesa) * 100}%` }} />
+                </div>
+                <div className="cat-val">{brl(v)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="box">
+        <h4>Lançamentos · {mesRef}</h4>
+        {doMes.length === 0 && <div className="sub">Nenhum lançamento neste mês.</div>}
+        {doMes.length > 0 && (
+          <div className="tx-list">
+            {doMes.map((t) => {
+              const lote = t.loteId ? lotes.find((l) => l.id === t.loteId)?.nome : null;
+              return (
+                <div key={t.id} className={`tx-row tx-${t.kind}`}>
+                  <div className="tx-date">{new Date(t.data + "T00:00:00").toLocaleDateString("pt-BR")}</div>
+                  <div className="tx-body">
+                    <div className="tx-title">{t.descricao}</div>
+                    <div className="tx-meta">
+                      {CATEGORIAS[t.categoria].label}
+                      {lote ? ` · ${lote}` : ""}
+                    </div>
+                  </div>
+                  <div className={`tx-val ${t.kind === "receita" ? "profit-pos" : "profit-neg"}`}>
+                    {t.kind === "receita" ? "+" : "-"} {brl(t.valor)}
+                  </div>
+                  <button className="btn small ghost" onClick={() => remover(t.id)} title="Remover">×</button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+/* ===================== SANITÁRIO (calendário de vacinas) ===================== */
+function SanitarioPanel() {
+  const { lotes } = useLotesStore();
+  const hoje = new Date();
+
+  type Evento = {
+    id: string;
+    loteId: string;
+    loteNome: string;
+    animal: AnimalKey;
+    nome: string;
+    data: Date;
+    aplicada: boolean;
+    diasAte: number;
+  };
+
+  const eventos: Evento[] = useMemo(() => {
+    const arr: Evento[] = [];
+    for (const l of lotes) {
+      const entrada = new Date(l.dataEntrada).getTime();
+      for (const v of l.vacinas) {
+        const data = new Date(entrada + v.diaIdeal * 86_400_000);
+        const diasAte = Math.ceil((data.getTime() - hoje.getTime()) / 86_400_000);
+        arr.push({
+          id: `${l.id}-${v.id}`,
+          loteId: l.id,
+          loteNome: l.nome,
+          animal: l.animal,
+          nome: v.nome,
+          data,
+          aplicada: !!v.aplicadaEm,
+          diasAte,
+        });
+      }
+    }
+    return arr.sort((a, b) => a.data.getTime() - b.data.getTime());
+  }, [lotes, hoje.getTime()]);
+
+  const atrasadas = eventos.filter((e) => !e.aplicada && e.diasAte < 0);
+  const hojeE = eventos.filter((e) => !e.aplicada && e.diasAte === 0);
+  const proximas = eventos.filter((e) => !e.aplicada && e.diasAte > 0 && e.diasAte <= 30);
+  const futuras = eventos.filter((e) => !e.aplicada && e.diasAte > 30);
+  const feitas = eventos.filter((e) => e.aplicada);
+
+  function toggleAplicada(loteId: string, vacId: string, aplicar: boolean) {
+    setLotes((prev) =>
+      prev.map((l) =>
+        l.id !== loteId
+          ? l
+          : {
+              ...l,
+              vacinas: l.vacinas.map((v) =>
+                v.id !== vacId ? v : { ...v, aplicadaEm: aplicar ? new Date().toISOString() : undefined },
+              ),
+            },
+      ),
+    );
+  }
+
+  function renderGrupo(titulo: string, lista: Evento[], className: string) {
+    if (lista.length === 0) return null;
+    return (
+      <div className="box">
+        <h4>{titulo} <span className="cnt-pill">{lista.length}</span></h4>
+        <div className="san-list">
+          {lista.map((e) => (
+            <div key={e.id} className={`san-item ${className}`}>
+              <div className="san-date">
+                <div className="san-day">{e.data.getDate()}</div>
+                <div className="san-mon">{e.data.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "")}</div>
+              </div>
+              <div className="san-body">
+                <div className="san-title">{e.nome}</div>
+                <div className="san-meta">
+                  <span className={`tag-pill ${e.animal === "poultry" ? "poultry" : "swine"}`}>
+                    {e.animal === "poultry" ? "Aves" : "Suínos"}
+                  </span>
+                  {e.loteNome} · {e.aplicada
+                    ? "aplicada"
+                    : e.diasAte === 0
+                      ? "aplicar hoje"
+                      : e.diasAte < 0
+                        ? `atrasada há ${Math.abs(e.diasAte)}d`
+                        : `em ${e.diasAte} dia${e.diasAte === 1 ? "" : "s"}`}
+                </div>
+              </div>
+              <button
+                className="btn small ghost"
+                onClick={() => toggleAplicada(e.loteId, e.id.split("-").slice(1).join("-"), !e.aplicada)}
+              >
+                {e.aplicada ? "Desmarcar" : "Marcar aplicada"}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="box hero-box">
+        <div className="hero-flex">
+          <div>
+            <div className="hero-eyebrow">Calendário sanitário</div>
+            <h4 className="hero-title">Vacinas e manejo do plantel em um só lugar</h4>
+            <div className="sub">
+              As datas são calculadas a partir da entrada de cada lote no cronograma padrão de vacinas. Marque como aplicada quando concluir.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+        <div className="kpi-card kpi-primary">
+          <div className="kpi-lbl">Aplicar hoje</div>
+          <div className="kpi-val">{hojeE.length}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-lbl">Atrasadas</div>
+          <div className={`kpi-val ${atrasadas.length ? "profit-neg" : ""}`}>{atrasadas.length}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-lbl">Próximos 30 dias</div>
+          <div className="kpi-val">{proximas.length}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-lbl">Aplicadas</div>
+          <div className="kpi-val profit-pos">{feitas.length}</div>
+        </div>
+      </div>
+
+      {lotes.length === 0 && (
+        <div className="box">
+          <div className="sub">Cadastre lotes no Meu Plantel para gerar o calendário sanitário automaticamente.</div>
+        </div>
+      )}
+
+      {renderGrupo("Atrasadas", atrasadas, "danger")}
+      {renderGrupo("Aplicar hoje", hojeE, "danger")}
+      {renderGrupo("Próximos 30 dias", proximas, "warn")}
+      {renderGrupo("Futuras", futuras, "info")}
+      {renderGrupo("Já aplicadas", feitas, "done")}
+    </>
+  );
+}
+
+function _PaywallScreenReal() {
   return (
     <div className="wrap paywall-wrap">
       <div className="paywall-hero">
