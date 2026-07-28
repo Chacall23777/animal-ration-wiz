@@ -271,6 +271,354 @@ function AguiarApp() {
 }
 
 /* ===================== TELA DE ASSINATURA (paywall) ===================== */
+
+/* ===================== DASHBOARD (INÍCIO) ===================== */
+type TabKey = "inicio" | "calc" | "plantel" | "chat" | "conta";
+
+type Alerta = {
+  id: string;
+  nivel: "info" | "warn" | "danger";
+  titulo: string;
+  detalhe: string;
+  acao?: { label: string; onClick: () => void };
+};
+
+function InicioPanel({
+  produtor,
+  onGoTo,
+}: {
+  produtor: string;
+  onGoTo: (t: TabKey) => void;
+}) {
+  const { lotes, estoque } = useLotesStore();
+  const [saco, setSaco] = useState(25);
+
+  const hoje = new Date();
+
+  const linhas = useMemo(() => {
+    return lotes.map((l) => {
+      const phase = PHASES[l.animal].find((p) => p.id === l.phaseId) ?? PHASES[l.animal][0];
+      const idadeDias = Math.max(0, daysBetween(new Date(l.dataEntrada), hoje));
+      const qtdAtual = Math.max(0, Math.round(l.qtd * (1 - l.mortalidadePct / 100)));
+      const consumoDia = phase.consumoDia * qtdAtual;
+      // ganho médio esperado
+      const ganhoDiaExp =
+        l.animal === "swine" && phase.producaoTipo === "ganho" && phase.producao
+          ? phase.producao
+          : l.animal === "poultry"
+            ? (l.pesoAlvo - l.pesoInicial) / 140
+            : 0;
+      let pesoAtual = l.pesoInicial;
+      if (ganhoDiaExp > 0) {
+        pesoAtual = Math.min(l.pesoAlvo, l.pesoInicial + ganhoDiaExp * idadeDias);
+      }
+      const diasRestantes =
+        ganhoDiaExp > 0
+          ? Math.max(0, Math.ceil((l.pesoAlvo - pesoAtual) / ganhoDiaExp))
+          : 0;
+      const custoMes = consumoDia * 30 * estoque.precoKg;
+      const receitaMes =
+        l.animal === "poultry" && phase.producaoTipo === "ovos" && phase.producao
+          ? ((phase.producao * qtdAtual) / 12) * 30 * l.precoVenda
+          : l.animal === "swine" && phase.producaoTipo === "ganho" && phase.producao
+            ? phase.producao * qtdAtual * 30 * l.precoVenda
+            : 0;
+      // próxima vacina
+      const entradaMs = new Date(l.dataEntrada).getTime();
+      const proxVac = [...l.vacinas]
+        .filter((v) => !v.aplicadaEm)
+        .map((v) => ({ ...v, data: new Date(entradaMs + v.diaIdeal * 86_400_000) }))
+        .sort((a, b) => a.data.getTime() - b.data.getTime())[0];
+      return {
+        lote: l,
+        phase,
+        idadeDias,
+        qtdAtual,
+        pesoAtual,
+        consumoDia,
+        diasRestantes,
+        custoMes,
+        receitaMes,
+        proxVac,
+      };
+    });
+  }, [lotes, estoque.precoKg]);
+
+  const totais = useMemo(() => {
+    return linhas.reduce(
+      (a, l) => ({
+        animais: a.animais + l.qtdAtual,
+        consumoDia: a.consumoDia + l.consumoDia,
+        custoMes: a.custoMes + l.custoMes,
+        receitaMes: a.receitaMes + l.receitaMes,
+      }),
+      { animais: 0, consumoDia: 0, custoMes: 0, receitaMes: 0 },
+    );
+  }, [linhas]);
+
+  const consumoMes = totais.consumoDia * 30;
+  const consumoAno = totais.consumoDia * 365;
+  const lucroMes = totais.receitaMes - totais.custoMes;
+
+  // ============= Alertas Inteligentes =============
+  const alertas: Alerta[] = useMemo(() => {
+    const arr: Alerta[] = [];
+
+    // Onboarding
+    if (lotes.length === 0) {
+      arr.push({
+        id: "onboarding",
+        nivel: "info",
+        titulo: "Bem-vindo ao ARNA!",
+        detalhe: "Cadastre seu primeiro lote para receber cálculos automáticos, alertas e relatórios.",
+        acao: { label: "Adicionar lote", onClick: () => onGoTo("plantel") },
+      });
+    }
+
+    // Estoque de ração
+    if (totais.consumoDia > 0 && estoque.kg > 0) {
+      const diasEstoque = Math.floor(estoque.kg / totais.consumoDia);
+      if (diasEstoque <= 3) {
+        arr.push({
+          id: "racao-critica",
+          nivel: "danger",
+          titulo: "ATENÇÃO! Seus animais irão ficar sem ração em " + diasEstoque + " dias.",
+          detalhe: `Estoque atual: ${estoque.kg.toFixed(0)} kg · Consumo diário: ${totais.consumoDia.toFixed(1)} kg. Compre ração o quanto antes.`,
+        });
+      } else if (diasEstoque <= 7) {
+        const faltamKg = Math.ceil(totais.consumoDia * 30 - estoque.kg);
+        arr.push({
+          id: "racao-baixa",
+          nivel: "warn",
+          titulo: `Você precisará comprar mais ${faltamKg.toLocaleString("pt-BR")} kg de ração em ${diasEstoque} dias.`,
+          detalhe: `Isso garante 30 dias de operação para seu plantel atual.`,
+        });
+      }
+    } else if (totais.consumoDia > 0 && estoque.kg === 0) {
+      arr.push({
+        id: "racao-sem-registro",
+        nivel: "info",
+        titulo: "Informe seu estoque de ração",
+        detalhe: "Registre quantos kg de ração você tem hoje e o ARNA calcula quando você precisará repor.",
+      });
+    }
+
+    // Vacinas próximas
+    for (const l of linhas) {
+      if (!l.proxVac) continue;
+      const diasAte = Math.ceil((l.proxVac.data.getTime() - hoje.getTime()) / 86_400_000);
+      if (diasAte <= 0 && diasAte > -3) {
+        arr.push({
+          id: `vac-hoje-${l.lote.id}`,
+          nivel: "danger",
+          titulo: `Aplique HOJE: ${l.proxVac.nome} · Lote ${l.lote.nome}`,
+          detalhe: `Data ideal: ${l.proxVac.data.toLocaleDateString("pt-BR")}.`,
+        });
+      } else if (diasAte > 0 && diasAte <= 5) {
+        arr.push({
+          id: `vac-${l.lote.id}`,
+          nivel: "warn",
+          titulo: `A vacina ${l.proxVac.nome} deverá ser aplicada em ${diasAte} dia${diasAte === 1 ? "" : "s"} · Lote ${l.lote.nome}`,
+          detalhe: `Data prevista: ${l.proxVac.data.toLocaleDateString("pt-BR")}.`,
+        });
+      }
+    }
+
+    // Fim de ciclo próximo
+    for (const l of linhas) {
+      if (l.diasRestantes > 0 && l.diasRestantes <= 10) {
+        arr.push({
+          id: `ciclo-${l.lote.id}`,
+          nivel: "info",
+          titulo: `Lote ${l.lote.nome}: peso ideal em ${l.diasRestantes} dia${l.diasRestantes === 1 ? "" : "s"}`,
+          detalhe: `Peso estimado hoje: ${l.pesoAtual.toFixed(2)} kg · Peso alvo: ${l.lote.pesoAlvo.toFixed(2)} kg.`,
+        });
+      }
+    }
+
+    return arr;
+  }, [lotes, linhas, totais.consumoDia, estoque.kg, hoje.getTime()]);
+
+  // ============= "Comprar Ração" =============
+  const compraSugerida = useMemo(() => {
+    // Sugestão: cobrir 30 dias descontando o que já tem em estoque
+    const alvoKg = Math.ceil(totais.consumoDia * 30);
+    const kgFalta = Math.max(0, alvoKg - estoque.kg);
+    const sacos = Math.ceil(kgFalta / saco);
+    const valor = kgFalta * estoque.precoKg;
+    return { alvoKg, kgFalta, sacos, valor };
+  }, [totais.consumoDia, estoque.kg, estoque.precoKg, saco]);
+
+  return (
+    <>
+      <div className="box hero-box">
+        <div className="hero-flex">
+          <div>
+            <div className="hero-eyebrow">Olá, {produtor.split(" ")[0]}</div>
+            <h4 className="hero-title">Seu plantel em um só lugar</h4>
+            <div className="sub">
+              Dashboard inteligente com consumo, custos, vacinas, lucro estimado e alertas em tempo real.
+            </div>
+          </div>
+          <div className="hero-cta">
+            <button className="btn" onClick={() => onGoTo("plantel")}>Meu Plantel</button>
+            <button className="btn ghost" onClick={() => onGoTo("chat")}>Consultor IA</button>
+          </div>
+        </div>
+      </div>
+
+      {alertas.length > 0 && (
+        <div className="alerts-stack">
+          {alertas.map((a) => (
+            <div key={a.id} className={`alert alert-${a.nivel} animate-fade-in`}>
+              <div className="alert-icon" aria-hidden>
+                {a.nivel === "danger" ? "⚠️" : a.nivel === "warn" ? "⏰" : "💡"}
+              </div>
+              <div className="alert-body">
+                <div className="alert-title">{a.titulo}</div>
+                <div className="alert-detail">{a.detalhe}</div>
+              </div>
+              {a.acao && (
+                <button className="btn small" onClick={a.acao.onClick}>
+                  {a.acao.label}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="kpi-grid">
+        <div className="kpi-card kpi-primary">
+          <div className="kpi-lbl">Animais no plantel</div>
+          <div className="kpi-val">{totais.animais.toLocaleString("pt-BR")}</div>
+          <div className="kpi-sub">{lotes.length} lote{lotes.length === 1 ? "" : "s"} ativo{lotes.length === 1 ? "" : "s"}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-lbl">Ração hoje</div>
+          <div className="kpi-val">{totais.consumoDia.toFixed(1)} <span className="kpi-unit">kg</span></div>
+          <div className="kpi-sub">{consumoMes.toFixed(0)} kg/mês · {consumoAno.toFixed(0)} kg/ano</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-lbl">Custo/mês</div>
+          <div className="kpi-val">{brl(totais.custoMes)}</div>
+          <div className="kpi-sub">Ração a {brl(estoque.precoKg)}/kg</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-lbl">Lucro estimado/mês</div>
+          <div className={`kpi-val ${lucroMes >= 0 ? "profit-pos" : "profit-neg"}`}>{brl(lucroMes)}</div>
+          <div className="kpi-sub">Receita {brl(totais.receitaMes)}</div>
+        </div>
+      </div>
+
+      <div className="box">
+        <h4>Estoque de ração</h4>
+        <div className="sub">Registre seu estoque atual e o preço médio pago por kg. Usamos isso para calcular alertas e custo.</div>
+        <div className="form-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+          <div className="field">
+            <label>Estoque atual (kg)</label>
+            <input
+              type="number"
+              min={0}
+              value={estoque.kg}
+              onChange={(e) => setEstoque({ ...estoque, kg: parseFloat(e.target.value) || 0 })}
+            />
+          </div>
+          <div className="field">
+            <label>Preço médio (R$/kg)</label>
+            <input
+              type="number"
+              step={0.01}
+              min={0}
+              value={estoque.precoKg}
+              onChange={(e) => setEstoque({ ...estoque, precoKg: parseFloat(e.target.value) || 0 })}
+            />
+          </div>
+          <div className="field">
+            <label>Tamanho do saco (kg)</label>
+            <input
+              type="number"
+              min={1}
+              value={saco}
+              onChange={(e) => setSaco(parseFloat(e.target.value) || 25)}
+            />
+          </div>
+        </div>
+
+        {totais.consumoDia > 0 && (
+          <div className="buy-card">
+            <div>
+              <div className="buy-eyebrow">Comprar Ração</div>
+              <div className="buy-title">
+                Você precisará de <b>{compraSugerida.kgFalta.toLocaleString("pt-BR")} kg</b> ({compraSugerida.sacos} sacos de {saco} kg) para 30 dias.
+              </div>
+              <div className="buy-sub">
+                Valor estimado <b>{brl(compraSugerida.valor)}</b> · com base no preço médio informado.
+              </div>
+            </div>
+            <button
+              className="btn"
+              onClick={() => alert("Em breve: integração com parceiros comerciais para compra direta.")}
+            >
+              Comprar
+            </button>
+          </div>
+        )}
+      </div>
+
+      {linhas.length > 0 && (
+        <div className="box">
+          <h4>Seus lotes</h4>
+          <div className="dash-lote-list">
+            {linhas.map((l) => (
+              <button
+                key={l.lote.id}
+                className={`dash-lote sel-${l.lote.animal === "poultry" ? "poultry" : "swine"}`}
+                onClick={() => onGoTo("plantel")}
+              >
+                <div className="dash-lote-head">
+                  <span className={`tag-pill ${l.lote.animal === "poultry" ? "poultry" : "swine"}`}>
+                    {l.lote.animal === "poultry" ? "Aves" : "Suínos"}
+                  </span>
+                  <strong>{l.lote.nome}</strong>
+                </div>
+                <div className="dash-lote-grid">
+                  <div><span>Animais</span><b>{l.qtdAtual}</b></div>
+                  <div><span>Idade</span><b>{l.idadeDias}d</b></div>
+                  <div><span>Peso</span><b>{l.pesoAtual.toFixed(2)}kg</b></div>
+                  <div><span>Ração/dia</span><b>{l.consumoDia.toFixed(1)}kg</b></div>
+                  <div><span>Custo/mês</span><b>{brl(l.custoMes)}</b></div>
+                  <div><span>Próx. vacina</span><b>{l.proxVac ? l.proxVac.nome : "—"}</b></div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="box">
+        <h4>Espécies disponíveis</h4>
+        <div className="sub">O ARNA já opera com suínos e aves. Novas espécies chegam em breve — seu produtor não precisa mudar de app.</div>
+        <div className="species-grid">
+          {SPECIES.map((sp) => (
+            <div
+              key={sp.key}
+              className={`species-chip ${sp.available ? "on" : "off"}`}
+              title={sp.categories.join(" · ")}
+            >
+              <div className="species-emoji" aria-hidden>{sp.emoji}</div>
+              <div className="species-name">{sp.label}</div>
+              <div className="species-sub">
+                {sp.available ? sp.categories.slice(0, 3).join(" · ") : (sp.soon || "Em breve")}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
 function PaywallScreen() {
   return (
     <div className="wrap paywall-wrap">
