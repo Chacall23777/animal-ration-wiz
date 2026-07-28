@@ -227,6 +227,8 @@ function AguiarApp() {
         </div>
       </header>
 
+      <TrialBanner session={session} onGoToConta={() => setTab("conta")} />
+
       {/* TABS */}
       <nav className="tabs">
         <button
