@@ -17,6 +17,7 @@ import {
   usePropertyPhotos,
   useAddPropertyPhoto,
   useSignedUrl,
+  signPath,
   uploadToBucket,
   type Property,
   type PropertyPhoto,
