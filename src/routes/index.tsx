@@ -397,6 +397,7 @@ type TabKey =
   | "financeiro"
   | "sanitario"
   | "chat"
+  | "galeria"
   | "conta";
 
 type Alerta = {
