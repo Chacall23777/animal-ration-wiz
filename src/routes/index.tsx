@@ -19,6 +19,14 @@ import {
   type ReportLote,
   type ReportContext,
 } from "@/lib/plantel-report";
+import {
+  useLotesStore,
+  setLotes,
+  setEstoque,
+  type Lote,
+  type Vacina,
+} from "@/lib/lotes-store";
+import { SPECIES, SOON_SPECIES } from "@/lib/species";
 
 export const Route = createFileRoute("/")({
   component: AguiarApp,
@@ -28,7 +36,9 @@ export const Route = createFileRoute("/")({
    AGUIAR NUTRIÇÃO ANIMAL — App único (calculadora + plantel + chat + conta)
    ============================================================ */
 
-type AnimalKey = "poultry" | "swine";
+// AnimalKey vem do store (mantido como alias para não quebrar o restante do arquivo)
+import type { AnimalKey as _AnimalKey } from "@/lib/lotes-store";
+type AnimalKey = _AnimalKey;
 
 type Phase = {
   id: string;
