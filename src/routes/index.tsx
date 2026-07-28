@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import "./aguiar.css";
+import arnaLogo from "@/assets/arna-logo.png.asset.json";
 
 export const Route = createFileRoute("/")({
   component: AguiarApp,
@@ -173,7 +174,7 @@ function AguiarApp() {
       {/* MASTHEAD */}
       <header className="masthead">
         <div className="brand">
-          <img src="/logo.svg" alt="Aguiar Nutrição Animal" className="brand-logo" />
+          <img src={arnaLogo.url} alt="ARNA — Nutrição Animal Inteligente" className="brand-logo" />
           <div>
             <h1>AGUIAR NUTRIÇÃO ANIMAL</h1>
             <div className="tag">CONSULTORIA RURAL</div>
@@ -246,7 +247,7 @@ function PaywallScreen({
   return (
     <div className="wrap paywall-wrap">
       <div className="paywall-hero">
-        <img src="/logo.svg" alt="Aguiar Nutrição Animal" className="paywall-logo" />
+        <img src={arnaLogo.url} alt="ARNA — Nutrição Animal Inteligente" className="paywall-logo" />
       </div>
       <h1 className="paywall-title">AGUIAR NUTRIÇÃO ANIMAL</h1>
       <div className="tag paywall-tag">Consultoria Rural · Rogério Aguiar</div>
