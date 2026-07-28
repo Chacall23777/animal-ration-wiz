@@ -248,7 +248,6 @@ function PaywallScreen({
       <div className="paywall-hero">
         <img src="/hen-isa.svg" alt="Galinha poedeira" className="paywall-animal paywall-hen" />
         <img src="/logo.svg" alt="Aguiar Nutrição Animal" className="paywall-logo" />
-        <img src="/pig-piau.svg" alt="Suíno da raça Piau" className="paywall-animal paywall-pig" />
       </div>
       <h1 className="paywall-title">AGUIAR NUTRIÇÃO ANIMAL</h1>
       <div className="tag paywall-tag">Consultoria Rural · Rogério Aguiar</div>
