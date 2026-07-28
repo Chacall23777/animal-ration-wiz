@@ -13,12 +13,13 @@ export type SessionState = {
   loading: boolean;
   user: User | null;
   isAdmin: boolean;
+  lifetime: boolean;
   subscription: SubscriptionRow | null;
   active: boolean;
 };
 
-function isActive(sub: SubscriptionRow | null, isAdmin: boolean) {
-  if (isAdmin) return true;
+function isActive(sub: SubscriptionRow | null, isAdmin: boolean, lifetime: boolean) {
+  if (isAdmin || lifetime) return true;
   if (!sub) return false;
   const okStatus = ["active", "trialing", "past_due"].includes(sub.status) || sub.status === "canceled";
   if (!okStatus) return false;
@@ -31,16 +32,17 @@ export function useSession(): SessionState & { refresh: () => Promise<void> } {
     loading: true,
     user: null,
     isAdmin: false,
+    lifetime: false,
     subscription: null,
     active: false,
   });
 
   async function load(user: User | null) {
     if (!user) {
-      setState({ loading: false, user: null, isAdmin: false, subscription: null, active: false });
+      setState({ loading: false, user: null, isAdmin: false, lifetime: false, subscription: null, active: false });
       return;
     }
-    const [{ data: roleRows }, { data: subRow }] = await Promise.all([
+    const [{ data: roleRows }, { data: subRow }, { data: profRow }] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", user.id),
       supabase
         .from("subscriptions")
@@ -49,10 +51,16 @@ export function useSession(): SessionState & { refresh: () => Promise<void> } {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
+      supabase
+        .from("profiles")
+        .select("lifetime_access")
+        .eq("id", user.id)
+        .maybeSingle(),
     ]);
     const isAdmin = !!roleRows?.some((r: { role: string }) => r.role === "admin");
+    const lifetime = !!(profRow as { lifetime_access?: boolean } | null)?.lifetime_access;
     const subscription = (subRow as SubscriptionRow | null) ?? null;
-    setState({ loading: false, user, isAdmin, subscription, active: isActive(subscription, isAdmin) });
+    setState({ loading: false, user, isAdmin, lifetime, subscription, active: isActive(subscription, isAdmin, lifetime) });
   }
 
   useEffect(() => {
