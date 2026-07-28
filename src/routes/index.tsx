@@ -1588,6 +1588,28 @@ function PlantelPanel({
           Cadastre quantos lotes quiser — todos os indicadores (idade, peso, consumo, vacinas,
           previsão produtiva e custos) são calculados automaticamente
         </div>
+        {trial && (
+          <div
+            style={{
+              margin: "10px 0 12px",
+              padding: "10px 12px",
+              borderRadius: 10,
+              background: "linear-gradient(90deg,#fff3e0,#ffe0b2)",
+              color: "#5d3a00",
+              fontSize: 12,
+              lineHeight: 1.45,
+              border: "1px solid #ffcc80",
+            }}
+          >
+            <b>Modo TESTE (7 dias grátis) —</b> limites:
+            <span style={{ marginLeft: 6 }}>
+              lotes {lotes.length}/{TRIAL_MAX_LOTES} · animais {trialAnimaisAtuais}/{TRIAL_MAX_ANIMAIS} · relatórios {trialR.reportsUsed}/{trialR.reportsMax}
+            </span>
+            <div style={{ opacity: 0.85, marginTop: 4 }}>
+              Após o 8º dia, R$ 97 (única cobrança) libera acesso <b>vitalício</b> e ilimitado.
+            </div>
+          </div>
+        )}
         <div className="form-grid">
           <div className="field">
             <label>Nome do lote</label>
