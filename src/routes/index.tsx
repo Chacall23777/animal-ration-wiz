@@ -1579,7 +1579,7 @@ function PlantelPanel({
     setBusy(key);
     try {
       const r = toReport(l);
-      const c = ctx();
+      const c = await ctx();
       const base = `arna-lote-${slug(l.lote.nome)}`;
       if (kind === "xlsx") {
         downloadBlob(exportLoteXLSX(r, c), `${base}.xlsx`);
@@ -1606,7 +1606,7 @@ function PlantelPanel({
     setBusy(key);
     try {
       const rs = linhas.map(toReport);
-      const c = ctx();
+      const c = await ctx();
       const base = `arna-plantel-${new Date().toISOString().slice(0, 10)}`;
       if (kind === "xlsx") {
         downloadBlob(exportPlantelXLSX(rs, c), `${base}.xlsx`);
