@@ -176,7 +176,7 @@ function AguiarApp() {
           <img src="/logo.svg" alt="Aguiar Nutrição Animal" className="brand-logo" />
           <div>
             <h1>AGUIAR NUTRIÇÃO ANIMAL</h1>
-            <div className="tag">Consultoria Rural · Rogério Aguiar</div>
+            <div className="tag">CONSULTORIA RURAL</div>
           </div>
         </div>
         <div
