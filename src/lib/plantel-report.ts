@@ -674,6 +674,7 @@ export function exportPlantelXLSX(lotes: ReportLote[], ctx: ReportContext): Blob
   );
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(vac), "Vacinas");
 
+  appendFotosSheet(wb, ctx);
   const out = XLSX.write(wb, { type: "array", bookType: "xlsx" });
   return new Blob([out], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
