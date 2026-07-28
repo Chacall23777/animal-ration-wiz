@@ -209,6 +209,17 @@ export function useSignedUrl(path: string | null | undefined) {
   });
 }
 
+/** Non-hook variant: resolve a signed URL for a stored path like "bucket/key". */
+export async function signPath(path: string | null | undefined, expiresInSec = 3600): Promise<string | null> {
+  if (!path) return null;
+  const [bucket, ...rest] = path.split("/");
+  const key = rest.join("/");
+  if (!bucket || !key) return null;
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(key, expiresInSec);
+  if (error) return null;
+  return data.signedUrl;
+}
+
 /* ------------------------------------------------------------------ */
 /* Property photos (gallery)                                           */
 /* ------------------------------------------------------------------ */
