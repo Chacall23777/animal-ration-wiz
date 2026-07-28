@@ -188,9 +188,6 @@ function AuthPage() {
         </div>
       )}
 
-      {screen === "denied" && (
-        null
-      )}
       {screen === "trial" && (
         <div className="box login-box" style={{ maxWidth: 460, margin: "24px auto" }}>
           <h4 style={{ marginTop: 0 }}>Quero testar o ARNAR</h4>
