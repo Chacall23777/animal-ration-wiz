@@ -1,9 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import "./aguiar.css";
 import arnaLogo from "@/assets/arna-logo.png.asset.json";
 import { arnaChat, type ArnaMemory, type ArnaChatMsg } from "@/utils/arna-chat.functions";
+import { useSession } from "@/lib/session";
+import { supabase } from "@/integrations/supabase/client";
+import { listSubscribers, grantAccess, finalizeCheckout } from "@/lib/admin.functions";
+import { getStripeEnvironment } from "@/lib/stripe";
 
 export const Route = createFileRoute("/")({
   component: AguiarApp,
@@ -131,44 +135,18 @@ function brl(n: number) {
 
 function AguiarApp() {
   const [tab, setTab] = useState<"calc" | "plantel" | "chat" | "conta">("calc");
-  const [account, setAccount] = useState<{
-    email: string;
-    isAdmin: boolean;
-    validUntil: Date;
-  } | null>(() => {
-    if (typeof window === "undefined") return null;
-    try {
-      const raw = localStorage.getItem("aguiar_account");
-      if (!raw) return null;
-      const p = JSON.parse(raw);
-      return { email: p.email, isAdmin: !!p.isAdmin, validUntil: new Date(p.validUntil) };
-    } catch {
-      return null;
-    }
-  });
+  const navigate = useNavigate();
+  const session = useSession();
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (account) {
-      localStorage.setItem(
-        "aguiar_account",
-        JSON.stringify({ ...account, validUntil: account.validUntil.toISOString() }),
-      );
-    } else {
-      localStorage.removeItem("aguiar_account");
-    }
-  }, [account]);
+    if (!session.loading && !session.user) void navigate({ to: "/auth" });
+  }, [session.loading, session.user, navigate]);
 
-  const acctActive = !!account && account.validUntil > new Date();
-  const acctLabel = account ? account.email.split("@")[0] : "Visitante";
+  if (session.loading) return <div className="wrap"><p style={{ padding: 24 }}>Carregando…</p></div>;
+  if (!session.user) return null;
+  if (!session.active) return <PaywallScreen />;
 
-  // Enquanto a assinatura não está liberada, a tela principal mostra só a
-  // logo + as ilustrações + o formulário de entrar/assinar. O restante do
-  // app (calculadora, plantel, consultor IA) só aparece depois do pagamento
-  // confirmado (ou de liberação manual pelo administrador).
-  if (!acctActive) {
-    return <PaywallScreen account={account} setAccount={setAccount} />;
-  }
+  const acctLabel = session.user.email?.split("@")[0] ?? "Conta";
 
   return (
     <div className="wrap">
@@ -186,7 +164,7 @@ function AguiarApp() {
           style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}
         >
           <button className="acct-badge" onClick={() => setTab("conta")}>
-            <span className={`dot ${acctActive ? "" : "off"}`} />
+            <span className="dot" />
             {acctLabel}
           </button>
           <div>Calculadora · Plantel · 1 kg a 100 t</div>
@@ -231,20 +209,14 @@ function AguiarApp() {
         <ChatPanel />
       </section>
       <section className={`panel ${tab === "conta" ? "active" : ""}`}>
-        <ContaPanel account={account} setAccount={setAccount} />
+        <ContaPanel />
       </section>
     </div>
   );
 }
 
 /* ===================== TELA DE ASSINATURA (paywall) ===================== */
-function PaywallScreen({
-  account,
-  setAccount,
-}: {
-  account: { email: string; isAdmin: boolean; validUntil: Date } | null;
-  setAccount: (a: { email: string; isAdmin: boolean; validUntil: Date } | null) => void;
-}) {
+function PaywallScreen() {
   return (
     <div className="wrap paywall-wrap">
       <div className="paywall-hero">
@@ -256,7 +228,7 @@ function PaywallScreen({
         Calculadora de ração, gestão de plantel e consultor IA para avicultura e suinocultura. Entre
         com sua conta ou assine para liberar o app completo.
       </p>
-      <ContaPanel account={account} setAccount={setAccount} />
+      <ContaPanel />
     </div>
   );
 }
