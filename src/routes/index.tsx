@@ -6,7 +6,15 @@ import arnaLogo from "@/assets/arna-logo.png.asset.json";
 import { arnaChat, type ArnaMemory, type ArnaChatMsg } from "@/utils/arna-chat.functions";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/integrations/supabase/client";
-import { listSubscribers, grantAccess, revokeAccess, getAdminStats } from "@/lib/admin.functions";
+import {
+  listSubscribers,
+  grantAccess,
+  revokeAccess,
+  getAdminStats,
+  listAllUsers,
+  setAdminRole,
+  grantLifetime,
+} from "@/lib/admin.functions";
 import {
   exportLotePDF,
   exportLoteXLSX,
@@ -218,6 +226,8 @@ function AguiarApp() {
           <div>Calculadora · Plantel · 1 kg a 100 t</div>
         </div>
       </header>
+
+      <TrialBanner session={session} onGoToConta={() => setTab("conta")} />
 
       {/* TABS */}
       <nav className="tabs">
@@ -2054,12 +2064,21 @@ function ContaPanel() {
     mrrBRL: number;
     chatInteractions: number;
   } | null>(null);
+  const [allUsers, setAllUsers] = useState<Array<{
+    id: string; email: string; full_name: string | null; created_at: string;
+    lifetime: boolean; isAdmin: boolean; subStatus: string | null;
+    priceId: string | null; periodEnd: string | null; environment: string | null;
+    trialing: boolean; trialDaysLeft: number | null;
+  }>>([]);
+  const [userFilter, setUserFilter] = useState<"all" | "trial" | "paid" | "admin" | "blocked">("all");
+  const [inviteAdminEmail, setInviteAdminEmail] = useState("");
 
   async function loadSubs() {
     try {
-      const [rows, s] = await Promise.all([listSubscribers(), getAdminStats()]);
+      const [rows, s, users] = await Promise.all([listSubscribers(), getAdminStats(), listAllUsers()]);
       setSubscribers(rows as typeof subscribers);
       setStats(s);
+      setAllUsers(users as typeof allUsers);
     } catch (e) {
       setAdminErr(e instanceof Error ? e.message : String(e));
     }
@@ -2096,6 +2115,35 @@ function ContaPanel() {
     } finally {
       setAdminBusy(false);
     }
+  }
+
+  async function doToggleAdmin(email: string, makeAdmin: boolean) {
+    const verb = makeAdmin ? "Conceder admin a" : "Remover admin de";
+    if (!confirm(`${verb} ${email}?`)) return;
+    setAdminBusy(true); setAdminErr("");
+    try { await setAdminRole({ data: { email, makeAdmin } }); await loadSubs(); }
+    catch (e) { setAdminErr(e instanceof Error ? e.message : String(e)); }
+    finally { setAdminBusy(false); }
+  }
+
+  async function doToggleLifetime(email: string, enable: boolean) {
+    const verb = enable ? "Conceder acesso vitalício a" : "Remover acesso vitalício de";
+    if (!confirm(`${verb} ${email}?`)) return;
+    setAdminBusy(true); setAdminErr("");
+    try { await grantLifetime({ data: { email, enable } }); await loadSubs(); }
+    catch (e) { setAdminErr(e instanceof Error ? e.message : String(e)); }
+    finally { setAdminBusy(false); }
+  }
+
+  async function doInviteAdmin() {
+    if (!inviteAdminEmail) return;
+    setAdminBusy(true); setAdminErr("");
+    try {
+      await setAdminRole({ data: { email: inviteAdminEmail.trim().toLowerCase(), makeAdmin: true } });
+      setInviteAdminEmail("");
+      await loadSubs();
+    } catch (e) { setAdminErr(e instanceof Error ? e.message : String(e)); }
+    finally { setAdminBusy(false); }
   }
 
   async function signOut() {
@@ -2198,20 +2246,106 @@ function ContaPanel() {
             </div>
           </div>
           {adminErr && <p className="disclaimer warn">{adminErr}</p>}
-          <div className="admin-list">
-            {subscribers.length === 0 ? (
-              <p className="mono" style={{ fontSize: 12, color: "var(--ink-soft)" }}>Nenhum assinante ainda.</p>
-            ) : (
-              subscribers.map((s) => (
-                <div key={s.email} className="admin-row">
-                  <span>{s.email} <span className="mono" style={{ fontSize: 10, color: "var(--ink-soft)", marginLeft: 6 }}>· {s.status}{s.price_id ? ` · ${s.price_id}` : ""}</span></span>
-                  <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <span className="mono">{s.current_period_end ? `até ${fmtDate(new Date(s.current_period_end))}` : "—"}</span>
-                    <button className="btn ghost" style={{ padding: "2px 8px", fontSize: 11 }} onClick={() => doRevoke(s.email)} disabled={adminBusy}>Revogar</button>
-                  </span>
-                </div>
-              ))
-            )}
+
+          <div style={{ marginTop: 16, borderTop: "1px solid var(--line,#ddd)", paddingTop: 12 }}>
+            <h5 style={{ margin: "0 0 8px" }}>Convidar administrador</h5>
+            <div className="form-grid admin-grant-grid">
+              <div className="field">
+                <label>E-mail (usuário já cadastrado)</label>
+                <input value={inviteAdminEmail} onChange={(e) => setInviteAdminEmail(e.target.value)} placeholder="admin@email.com" />
+              </div>
+              <div className="field" style={{ alignSelf: "end" }}>
+                <button className="btn" onClick={doInviteAdmin} disabled={adminBusy}>{adminBusy ? "…" : "Conceder admin"}</button>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+              <h5 style={{ margin: 0 }}>Todos os usuários ({allUsers.length})</h5>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {([
+                  ["all", "Todos"],
+                  ["trial", "Em teste"],
+                  ["paid", "Pagantes"],
+                  ["admin", "Admins"],
+                  ["blocked", "Sem acesso"],
+                ] as const).map(([k, l]) => (
+                  <button
+                    key={k}
+                    className={`btn ghost`}
+                    onClick={() => setUserFilter(k)}
+                    style={{
+                      padding: "3px 10px",
+                      fontSize: 11,
+                      background: userFilter === k ? "var(--green,#2e5b3a)" : undefined,
+                      color: userFilter === k ? "#fff" : undefined,
+                      border: userFilter === k ? "1px solid var(--green,#2e5b3a)" : undefined,
+                    }}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="admin-list" style={{ marginTop: 8 }}>
+              {allUsers
+                .filter((u) => {
+                  const now = Date.now();
+                  const active = u.isAdmin || u.lifetime || (u.subStatus && ["active","trialing","past_due"].includes(u.subStatus) && (!u.periodEnd || new Date(u.periodEnd).getTime() > now));
+                  if (userFilter === "trial") return u.trialing;
+                  if (userFilter === "admin") return u.isAdmin;
+                  if (userFilter === "paid") return !u.isAdmin && (u.lifetime || (u.subStatus === "active" && u.priceId && u.priceId !== "admin_grant"));
+                  if (userFilter === "blocked") return !active;
+                  return true;
+                })
+                .map((u) => {
+                  const badge = u.isAdmin
+                    ? { label: "ADMIN", color: "#7b1fa2" }
+                    : u.lifetime
+                      ? { label: "VITALÍCIO", color: "#2e7d32" }
+                      : u.trialing
+                        ? { label: `TESTE · ${u.trialDaysLeft}d`, color: u.trialDaysLeft != null && u.trialDaysLeft <= 3 ? "#c62828" : "#1565c0" }
+                        : u.subStatus === "active"
+                          ? { label: "ATIVO", color: "#2e7d32" }
+                          : u.subStatus === "canceled"
+                            ? { label: "CANCELADO", color: "#757575" }
+                            : { label: "SEM ACESSO", color: "#c62828" };
+                  return (
+                    <div key={u.id} className="admin-row" style={{ flexWrap: "wrap", gap: 6 }}>
+                      <span style={{ flex: 1, minWidth: 180 }}>
+                        {u.email}
+                        {u.full_name && <span style={{ color: "var(--ink-soft,#666)", marginLeft: 6, fontSize: 11 }}>({u.full_name})</span>}
+                        <span
+                          style={{
+                            marginLeft: 8, fontSize: 10, padding: "2px 6px", borderRadius: 4,
+                            background: badge.color, color: "#fff", fontWeight: 700, letterSpacing: 0.3,
+                          }}
+                        >{badge.label}</span>
+                        <span className="mono" style={{ marginLeft: 6, fontSize: 10, color: "var(--ink-soft,#666)" }}>
+                          {u.periodEnd ? `até ${fmtDate(new Date(u.periodEnd))}` : ""}
+                        </span>
+                      </span>
+                      <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        {!u.lifetime ? (
+                          <button className="btn ghost" style={{ padding: "2px 8px", fontSize: 11 }} disabled={adminBusy} onClick={() => doToggleLifetime(u.email, true)}>+ Vitalício</button>
+                        ) : (
+                          <button className="btn ghost" style={{ padding: "2px 8px", fontSize: 11 }} disabled={adminBusy} onClick={() => doToggleLifetime(u.email, false)}>− Vitalício</button>
+                        )}
+                        {!u.isAdmin ? (
+                          <button className="btn ghost" style={{ padding: "2px 8px", fontSize: 11 }} disabled={adminBusy} onClick={() => doToggleAdmin(u.email, true)}>+ Admin</button>
+                        ) : (
+                          <button className="btn ghost" style={{ padding: "2px 8px", fontSize: 11 }} disabled={adminBusy} onClick={() => doToggleAdmin(u.email, false)}>− Admin</button>
+                        )}
+                        <button className="btn ghost" style={{ padding: "2px 8px", fontSize: 11, color: "#c62828" }} disabled={adminBusy} onClick={() => doRevoke(u.email)}>Bloquear</button>
+                      </span>
+                    </div>
+                  );
+                })}
+              {allUsers.length === 0 && (
+                <p className="mono" style={{ fontSize: 12, color: "var(--ink-soft)" }}>Nenhum usuário cadastrado ainda.</p>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -2224,6 +2358,67 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
     <div style={{ padding: 10, border: "1px solid var(--line, #ddd)", borderRadius: 8, background: "var(--paper, #fff)" }}>
       <div style={{ fontSize: 11, color: "var(--ink-soft, #666)", textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</div>
       <div style={{ fontSize: 20, fontWeight: 700, marginTop: 2 }}>{value}</div>
+    </div>
+  );
+}
+
+/* ===================== TRIAL BANNER (dias 5/6/7) ===================== */
+function TrialBanner({
+  session,
+  onGoToConta,
+}: {
+  session: ReturnType<typeof useSession>;
+  onGoToConta: () => void;
+}) {
+  if (session.isAdmin || session.lifetime) return null;
+  const sub = session.subscription;
+  if (!sub || sub.status !== "trialing" || !sub.current_period_end) return null;
+  const end = new Date(sub.current_period_end).getTime();
+  const diff = end - Date.now();
+  if (diff <= 0) return null;
+  const daysLeft = Math.ceil(diff / 86400000);
+  if (daysLeft > 7) return null;
+
+  const urgent = daysLeft <= 3;
+  const bg = urgent ? "linear-gradient(90deg,#c62828,#e65100)" : "linear-gradient(90deg,#2e7d32,#1565c0)";
+  const emoji = urgent ? "⚠️" : "🎁";
+  const titulo = urgent
+    ? daysLeft === 1
+      ? "Último dia do teste grátis"
+      : `Faltam ${daysLeft} dias do seu teste grátis`
+    : `Você está no teste grátis — ${daysLeft} dias restantes`;
+  const detalhe = urgent
+    ? "A cobrança única de R$ 97 (acesso vitalício) será feita automaticamente ao fim do período. Cancele antes se não quiser continuar."
+    : "Aproveite todos os recursos. No 8º dia, R$ 97 (uma única vez) para acesso vitalício.";
+
+  return (
+    <div
+      role="status"
+      style={{
+        margin: "10px 0 4px",
+        padding: "12px 14px",
+        borderRadius: 12,
+        background: bg,
+        color: "#fff",
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        flexWrap: "wrap",
+        boxShadow: "0 4px 14px rgba(0,0,0,.12)",
+      }}
+    >
+      <span style={{ fontSize: 22 }}>{emoji}</span>
+      <div style={{ flex: 1, minWidth: 220 }}>
+        <div style={{ fontWeight: 700, fontSize: 14 }}>{titulo}</div>
+        <div style={{ fontSize: 12, opacity: 0.95, marginTop: 2 }}>{detalhe}</div>
+      </div>
+      <button
+        className="btn"
+        onClick={onGoToConta}
+        style={{ background: "#fff", color: "#111", border: 0, fontWeight: 700 }}
+      >
+        Gerenciar assinatura
+      </button>
     </div>
   );
 }
