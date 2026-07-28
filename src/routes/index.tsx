@@ -2238,3 +2238,64 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   );
 }
 
+/* ===================== TRIAL BANNER (dias 5/6/7) ===================== */
+function TrialBanner({
+  session,
+  onGoToConta,
+}: {
+  session: ReturnType<typeof useSession>;
+  onGoToConta: () => void;
+}) {
+  if (session.isAdmin || session.lifetime) return null;
+  const sub = session.subscription;
+  if (!sub || sub.status !== "trialing" || !sub.current_period_end) return null;
+  const end = new Date(sub.current_period_end).getTime();
+  const diff = end - Date.now();
+  if (diff <= 0) return null;
+  const daysLeft = Math.ceil(diff / 86400000);
+  if (daysLeft > 7) return null;
+
+  const urgent = daysLeft <= 3;
+  const bg = urgent ? "linear-gradient(90deg,#c62828,#e65100)" : "linear-gradient(90deg,#2e7d32,#1565c0)";
+  const emoji = urgent ? "⚠️" : "🎁";
+  const titulo = urgent
+    ? daysLeft === 1
+      ? "Último dia do teste grátis"
+      : `Faltam ${daysLeft} dias do seu teste grátis`
+    : `Você está no teste grátis — ${daysLeft} dias restantes`;
+  const detalhe = urgent
+    ? "A cobrança única de R$ 97 (acesso vitalício) será feita automaticamente ao fim do período. Cancele antes se não quiser continuar."
+    : "Aproveite todos os recursos. No 8º dia, R$ 97 (uma única vez) para acesso vitalício.";
+
+  return (
+    <div
+      role="status"
+      style={{
+        margin: "10px 0 4px",
+        padding: "12px 14px",
+        borderRadius: 12,
+        background: bg,
+        color: "#fff",
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        flexWrap: "wrap",
+        boxShadow: "0 4px 14px rgba(0,0,0,.12)",
+      }}
+    >
+      <span style={{ fontSize: 22 }}>{emoji}</span>
+      <div style={{ flex: 1, minWidth: 220 }}>
+        <div style={{ fontWeight: 700, fontSize: 14 }}>{titulo}</div>
+        <div style={{ fontSize: 12, opacity: 0.95, marginTop: 2 }}>{detalhe}</div>
+      </div>
+      <button
+        className="btn"
+        onClick={onGoToConta}
+        style={{ background: "#fff", color: "#111", border: 0, fontWeight: 700 }}
+      >
+        Gerenciar assinatura
+      </button>
+    </div>
+  );
+}
+
