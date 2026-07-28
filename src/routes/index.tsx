@@ -712,6 +712,19 @@ const SUGGESTIONS = [
 
 const MEMORY_KEY = "arna_memory_v1";
 const HISTORY_KEY = "arna_history_v1";
+const CLIENT_ID_KEY = "arna_client_id_v1";
+
+function getClientId(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    let id = localStorage.getItem(CLIENT_ID_KEY);
+    if (!id) {
+      id = (crypto?.randomUUID?.() ?? `c_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+      localStorage.setItem(CLIENT_ID_KEY, id);
+    }
+    return id;
+  } catch { return ""; }
+}
 
 function loadMemory(): ArnaMemory {
   if (typeof window === "undefined") return {};
@@ -766,7 +779,7 @@ function ChatPanel() {
       .map((m) => ({ role: m.who === "user" ? "user" : "assistant", content: m.text }));
 
     try {
-      const res = await arnaChat({ data: { messages: history, memory, pro } });
+      const res = await arnaChat({ data: { messages: history, memory, pro, clientId: getClientId() } });
       if ("error" in res) {
         setMsgs((m) => [...m, { who: "system-note", text: `⚠ ${res.error}` }]);
       } else {
