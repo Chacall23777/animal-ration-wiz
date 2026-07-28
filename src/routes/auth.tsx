@@ -20,7 +20,7 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const navigate = useNavigate();
   // Sem cadastro público. Apenas: Entrar OU Iniciar teste gratuito (Stripe trial).
-  const [screen, setScreen] = useState<"choice" | "login" | "trial" | "denied">("choice");
+  const [screen, setScreen] = useState<"choice" | "login" | "trial" | "denied" | "forgot">("choice");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -111,6 +111,24 @@ function AuthPage() {
     }
   }
 
+  async function submitForgot(e: React.FormEvent) {
+    e.preventDefault();
+    setErr("");
+    setInfo("");
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/set-password`,
+      });
+      if (error) throw error;
+      setInfo("Enviamos um link para o seu e-mail. Verifique também a caixa de spam.");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="wrap paywall-wrap">
       <div className="paywall-hero">
@@ -182,8 +200,51 @@ function AuthPage() {
               {busy ? "…" : "Entrar"}
             </button>
           </form>
+          <p className="disclaimer" style={{ marginTop: 12, textAlign: "center" }}>
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setErr("");
+                setInfo("");
+                setPassword("");
+                setScreen("forgot");
+              }}
+            >
+              Esqueci minha senha
+            </a>
+          </p>
           <p className="disclaimer" style={{ marginTop: 12 }}>
             <a href="#" onClick={(e) => { e.preventDefault(); setScreen("choice"); }}>← Voltar</a>
+          </p>
+        </div>
+      )}
+
+      {screen === "forgot" && (
+        <div className="box login-box" style={{ maxWidth: 420, margin: "24px auto" }}>
+          <h4>Redefinir senha</h4>
+          <p className="disclaimer" style={{ marginBottom: 12 }}>
+            Informe seu e-mail cadastrado. Enviaremos um link para você criar uma nova senha.
+          </p>
+          <form onSubmit={submitForgot}>
+            <div className="field">
+              <label>E-mail</label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="voce@email.com"
+              />
+            </div>
+            {err && <p className="disclaimer warn">{err}</p>}
+            {info && <p className="disclaimer">{info}</p>}
+            <button className="btn" disabled={busy} type="submit">
+              {busy ? "…" : "Enviar link de redefinição"}
+            </button>
+          </form>
+          <p className="disclaimer" style={{ marginTop: 12 }}>
+            <a href="#" onClick={(e) => { e.preventDefault(); setErr(""); setInfo(""); setScreen("login"); }}>← Voltar para o login</a>
           </p>
         </div>
       )}
