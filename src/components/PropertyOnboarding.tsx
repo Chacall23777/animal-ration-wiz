@@ -9,9 +9,11 @@ import {
 type Props = {
   user: User;
   onDone: () => void;
+  onCancel?: () => void;
+  allowCancel?: boolean;
 };
 
-export function PropertyOnboarding({ user, onDone }: Props) {
+export function PropertyOnboarding({ user, onDone, onCancel, allowCancel }: Props) {
   const createProperty = useCreateProperty(user.id);
   const updateProfile = useUpdateProducerProfile(user.id);
 
@@ -159,6 +161,11 @@ export function PropertyOnboarding({ user, onDone }: Props) {
         {err && <p className="pw-err">{err}</p>}
 
         <div className="pw-actions">
+          {allowCancel && onCancel && (
+            <button className="btn ghost" onClick={onCancel} disabled={saving}>
+              Voltar ao início
+            </button>
+          )}
           {step === 2 && (
             <button className="btn ghost" onClick={() => setStep(1)} disabled={saving}>
               Voltar
@@ -181,8 +188,8 @@ export function PropertyOnboarding({ user, onDone }: Props) {
       </div>
 
       <style>{`
-        .pw-scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);z-index:9999;display:grid;place-items:center;padding:16px}
-        .pw-modal{background:var(--surface,#fff);color:var(--fg,#111);width:min(560px,100%);max-height:92vh;overflow:auto;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.35);padding:24px}
+        .pw-scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);z-index:9999;display:grid;place-items:center;padding:8px}
+        .pw-modal{background:var(--surface,#fff);color:var(--fg,#111);width:min(560px,100%);max-height:96vh;overflow:auto;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.35);padding:18px}
         .pw-header h2{margin:0 0 4px}
         .pw-header .muted{margin:0 0 12px;opacity:.7;font-size:.95rem}
         .pw-progress{display:flex;gap:6px;margin-bottom:16px}
@@ -192,9 +199,15 @@ export function PropertyOnboarding({ user, onDone }: Props) {
         .pw-full{grid-column:1 / -1}
         .pw-grid label{display:flex;flex-direction:column;gap:4px;font-size:.85rem;font-weight:600}
         .pw-grid input,.pw-grid textarea{padding:10px 12px;border:1px solid rgba(0,0,0,.15);border-radius:10px;background:transparent;color:inherit;font:inherit}
-        .pw-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+        .pw-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:18px}
+        .pw-actions .btn{flex:1 1 auto;min-width:0}
         .pw-err{color:#c62828;margin:8px 0 0;font-size:.9rem}
-        @media (max-width:520px){.pw-grid{grid-template-columns:1fr}}
+        @media (max-width:520px){
+          .pw-grid{grid-template-columns:1fr}
+          .pw-modal{padding:14px;border-radius:16px}
+          .pw-header h2{font-size:1.15rem}
+          .pw-header .muted{font-size:.85rem}
+        }
       `}</style>
     </div>
   );
