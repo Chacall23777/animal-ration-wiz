@@ -1147,7 +1147,7 @@ function _PaywallScreenReal() {
         Calculadora de ração, gestão de plantel e consultor IA para avicultura e suinocultura. Entre
         com sua conta ou assine para liberar o app completo.
       </p>
-      <ContaPanel />
+      <ContaPanel activeProperty={null} />
     </div>
   );
 }
