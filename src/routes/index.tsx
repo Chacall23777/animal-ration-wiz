@@ -155,7 +155,9 @@ function brl(n: number) {
 /* ============================================================ */
 
 function AguiarApp() {
-  const [tab, setTab] = useState<"inicio" | "calc" | "plantel" | "chat" | "conta">("inicio");
+  const [tab, setTab] = useState<
+    "inicio" | "calc" | "plantel" | "financeiro" | "sanitario" | "chat" | "conta"
+  >("inicio");
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     if (typeof window === "undefined") return "light";
     return (localStorage.getItem("arna_theme") as "light" | "dark") || "light";
@@ -232,6 +234,18 @@ function AguiarApp() {
           Meu Plantel
         </button>
         <button
+          className={`tab-btn ${tab === "financeiro" ? "active" : ""}`}
+          onClick={() => setTab("financeiro")}
+        >
+          Financeiro
+        </button>
+        <button
+          className={`tab-btn ${tab === "sanitario" ? "active" : ""}`}
+          onClick={() => setTab("sanitario")}
+        >
+          Sanitário
+        </button>
+        <button
           className={`tab-btn ${tab === "chat" ? "active" : ""}`}
           onClick={() => setTab("chat")}
         >
@@ -259,6 +273,12 @@ function AguiarApp() {
           produtor={session.user.user_metadata?.full_name || acctLabel}
           email={session.user.email ?? undefined}
         />
+      </section>
+      <section className={`panel ${tab === "financeiro" ? "active" : ""}`}>
+        <FinanceiroPanel />
+      </section>
+      <section className={`panel ${tab === "sanitario" ? "active" : ""}`}>
+        <SanitarioPanel />
       </section>
       <section className={`panel ${tab === "chat" ? "active" : ""}`}>
         <ChatPanel />
