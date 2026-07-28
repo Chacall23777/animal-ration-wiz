@@ -8,6 +8,13 @@ import { useSession } from "@/lib/session";
 import { useTrialReports, TRIAL_MAX_LOTES, TRIAL_MAX_ANIMAIS, TRIAL_MAX_RELATORIOS, isTrial } from "@/lib/trial-limits";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  useProperties,
+  useActiveProperty,
+  useCreateProperty,
+} from "@/lib/properties-store";
+import { PropertyOnboarding } from "@/components/PropertyOnboarding";
+import { PropertySwitcher } from "@/components/PropertySwitcher";
+import {
   listSubscribers,
   grantAccess,
   revokeAccess,
