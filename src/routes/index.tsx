@@ -966,7 +966,13 @@ function ContaPanel() {
         <div className="status-row">
           <span>Status</span>
           <b style={{ color: ativo ? "var(--good)" : "var(--bad)" }}>
-            {session.isAdmin ? "Admin (vitalício)" : ativo ? "Ativa" : "Sem assinatura"}
+            {session.isAdmin
+              ? "Admin (vitalício)"
+              : session.lifetime
+                ? "Vitalício ✓"
+                : ativo
+                  ? "Ativa"
+                  : "Sem assinatura"}
           </b>
         </div>
         {validUntil && (
