@@ -2,6 +2,7 @@
   "name": "ARNA — Aguiar Nutrição Animal",
   "short_name": "ARNA",
   "description": "Calculadora de ração, gestão de plantel e consultor IA para avicultura e suinocultura.",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -14,5 +15,14 @@
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/mobile-1.png",
+      "sizes": "540x960",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Tela inicial do ARNA"
+    }
   ]
 }
