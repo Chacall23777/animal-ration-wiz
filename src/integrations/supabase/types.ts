@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_control: {
+        Row: {
+          access_type: Database["public"]["Enums"]["access_type"]
+          activated_at: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          invited_by: string | null
+          is_protected: boolean
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_type?: Database["public"]["Enums"]["access_type"]
+          activated_at?: string | null
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id?: string
+          invited_by?: string | null
+          is_protected?: boolean
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_type?: Database["public"]["Enums"]["access_type"]
+          activated_at?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          invited_by?: string | null
+          is_protected?: boolean
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -287,8 +326,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      resolve_access: {
+        Args: { _email: string }
+        Returns: Database["public"]["Enums"]["access_type"]
+      }
     }
     Enums: {
+      access_type: "super_admin" | "admin" | "lifetime" | "trial" | "blocked"
       app_role: "admin" | "user"
       property_photo_category:
         | "propriedade"
@@ -424,6 +468,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      access_type: ["super_admin", "admin", "lifetime", "trial", "blocked"],
       app_role: ["admin", "user"],
       property_photo_category: [
         "propriedade",
