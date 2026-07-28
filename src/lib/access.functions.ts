@@ -131,3 +131,64 @@ export const setAccessType = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
+
+/**
+ * Registra um novo usuário no fluxo de trial (público).
+ * - Insere/atualiza access_control como 'trial'
+ * - Cria conta no Supabase Auth com email já confirmado (para poder logar de imediato)
+ * O cliente em seguida faz signInWithPassword e segue para /checkout.
+ */
+export const registerTrial = createServerFn({ method: "POST" })
+  .inputValidator((d: { email: string; password: string; full_name: string }) =>
+    z
+      .object({
+        email: z.string().email(),
+        password: z.string().min(6).max(72),
+        full_name: z.string().trim().min(1).max(120),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const email = data.email.toLowerCase();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Upsert access_control como trial (não sobrescreve admin/lifetime/super_admin existentes)
+    const { data: existing } = await supabaseAdmin
+      .from("access_control")
+      .select("id, access_type, is_protected")
+      .ilike("email", email)
+      .maybeSingle();
+
+    if (existing) {
+      if (existing.access_type === "blocked") {
+        throw new Error("Este email está bloqueado. Fale com o administrador.");
+      }
+      // mantém tipos superiores; só promove blocked→trial não acontece pelo guard acima
+    } else {
+      const { error: acErr } = await supabaseAdmin.from("access_control").insert({
+        email,
+        full_name: data.full_name,
+        access_type: "trial",
+      });
+      if (acErr) throw acErr;
+    }
+
+    // Cria (ou atualiza senha) do usuário no Auth com email já confirmado
+    const { data: created, error: createErr } = await (supabaseAdmin as any).auth.admin.createUser({
+      email,
+      password: data.password,
+      email_confirm: true,
+      user_metadata: { full_name: data.full_name },
+    });
+
+    if (createErr) {
+      const msg = String(createErr.message || createErr).toLowerCase();
+      if (msg.includes("already") || msg.includes("registered") || msg.includes("exist")) {
+        // usuário já existe — não redefinimos senha silenciosamente
+        throw new Error("Este email já possui conta. Faça login em vez de criar uma nova.");
+      }
+      throw createErr;
+    }
+
+    return { ok: true, userId: created?.user?.id ?? null };
+  });
