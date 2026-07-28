@@ -5,6 +5,7 @@ import "./aguiar.css";
 import arnaLogo from "@/assets/arna-logo.png.asset.json";
 import { arnaChat, type ArnaMemory, type ArnaChatMsg } from "@/utils/arna-chat.functions";
 import { useSession } from "@/lib/session";
+import { useTrialReports, TRIAL_MAX_LOTES, TRIAL_MAX_ANIMAIS, TRIAL_MAX_RELATORIOS, isTrial } from "@/lib/trial-limits";
 import { supabase } from "@/integrations/supabase/client";
 import {
   listSubscribers,
