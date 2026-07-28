@@ -189,7 +189,7 @@ function brl(n: number) {
 
 function AguiarApp() {
   const [tab, setTab] = useState<
-    "inicio" | "calc" | "plantel" | "financeiro" | "sanitario" | "chat" | "conta"
+    "inicio" | "calc" | "plantel" | "financeiro" | "sanitario" | "chat" | "galeria" | "conta"
   >("inicio");
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     if (typeof window === "undefined") return "light";
