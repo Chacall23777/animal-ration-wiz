@@ -1359,10 +1359,12 @@ function PlantelPanel({
   produtor = "",
   email,
   session,
+  activeProperty,
 }: {
   produtor?: string;
   email?: string;
   session: ReturnType<typeof useSession>;
+  activeProperty?: Property | null;
 }) {
   const [precos, setPrecos] = useState({ milho: 1.4, soja: 2.2, nucleo: 8.5, calcario: 0.6 });
   const [animal, setAnimal] = useState<AnimalKey>("poultry");
