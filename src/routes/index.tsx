@@ -5,6 +5,7 @@ import "./aguiar.css";
 import arnaLogo from "@/assets/arna-logo.png.asset.json";
 import { arnaChat, type ArnaMemory, type ArnaChatMsg } from "@/utils/arna-chat.functions";
 import { useSession } from "@/lib/session";
+import { useTrialReports, TRIAL_MAX_LOTES, TRIAL_MAX_ANIMAIS, TRIAL_MAX_RELATORIOS, isTrial } from "@/lib/trial-limits";
 import { supabase } from "@/integrations/supabase/client";
 import {
   listSubscribers,
@@ -288,6 +289,7 @@ function AguiarApp() {
         <PlantelPanel
           produtor={session.user.user_metadata?.full_name || acctLabel}
           email={session.user.email ?? undefined}
+          session={session}
         />
       </section>
       <section className={`panel ${tab === "financeiro" ? "active" : ""}`}>
@@ -1265,10 +1267,12 @@ function daysBetween(a: Date, b: Date) {
 function PlantelPanel({
   produtor = "",
   email,
+  session,
 }: {
   produtor?: string;
   email?: string;
-} = {}) {
+  session: ReturnType<typeof useSession>;
+}) {
   const [precos, setPrecos] = useState({ milho: 1.4, soja: 2.2, nucleo: 8.5, calcario: 0.6 });
   const [animal, setAnimal] = useState<AnimalKey>("poultry");
   const [phaseId, setPhaseId] = useState(PHASES.poultry[4].id);
@@ -1280,6 +1284,10 @@ function PlantelPanel({
   const [pesoAlvo, setPesoAlvo] = useState(1.8);
   const [mortalidadePct, setMortalidadePct] = useState(3);
   const { lotes } = useLotesStore();
+  const trialR = useTrialReports(session);
+  const trial = trialR.trial;
+  const trialAnimaisAtuais = lotes.reduce((acc, l) => acc + (l.qtd || 0), 0);
+  const trialAnimaisRestantes = Math.max(0, TRIAL_MAX_ANIMAIS - trialAnimaisAtuais);
 
   const phases = PHASES[animal];
 
@@ -1440,6 +1448,10 @@ function PlantelPanel({
     l: (typeof linhas)[number],
     kind: "pdf" | "xlsx" | "share" | "print",
   ) {
+    if (trial && !trialR.increment()) {
+      alert(`Modo TESTE: limite de ${TRIAL_MAX_RELATORIOS} relatórios atingido. Assine (R$ 97, vitalício) para gerar relatórios ilimitados.`);
+      return;
+    }
     const key = `${l.lote.id}:${kind}`;
     setBusy(key);
     try {
@@ -1463,6 +1475,10 @@ function PlantelPanel({
   }
 
   async function plantelAction(kind: "pdf" | "xlsx" | "share" | "print") {
+    if (trial && !trialR.increment()) {
+      alert(`Modo TESTE: limite de ${TRIAL_MAX_RELATORIOS} relatórios atingido. Assine (R$ 97, vitalício) para gerar relatórios ilimitados.`);
+      return;
+    }
     const key = `plantel:${kind}`;
     setBusy(key);
     try {
@@ -1486,6 +1502,16 @@ function PlantelPanel({
   }
 
   function addLote() {
+    if (trial) {
+      if (lotes.length >= TRIAL_MAX_LOTES) {
+        alert(`Modo TESTE: máximo de ${TRIAL_MAX_LOTES} lotes. Assine (R$ 97, vitalício) para cadastrar lotes ilimitados.`);
+        return;
+      }
+      if (trialAnimaisAtuais + qtd > TRIAL_MAX_ANIMAIS) {
+        alert(`Modo TESTE: máximo de ${TRIAL_MAX_ANIMAIS} animais somados (você já tem ${trialAnimaisAtuais}). Reduza a quantidade ou assine para acesso ilimitado.`);
+        return;
+      }
+    }
     const vacinas: Vacina[] = VACINAS_PADRAO[animal].map((v, i) => ({
       id: `v_${i}_${Math.random().toString(36).slice(2, 6)}`,
       nome: v.nome,
@@ -1562,6 +1588,28 @@ function PlantelPanel({
           Cadastre quantos lotes quiser — todos os indicadores (idade, peso, consumo, vacinas,
           previsão produtiva e custos) são calculados automaticamente
         </div>
+        {trial && (
+          <div
+            style={{
+              margin: "10px 0 12px",
+              padding: "10px 12px",
+              borderRadius: 10,
+              background: "linear-gradient(90deg,#fff3e0,#ffe0b2)",
+              color: "#5d3a00",
+              fontSize: 12,
+              lineHeight: 1.45,
+              border: "1px solid #ffcc80",
+            }}
+          >
+            <b>Modo TESTE (7 dias grátis) —</b> limites:
+            <span style={{ marginLeft: 6 }}>
+              lotes {lotes.length}/{TRIAL_MAX_LOTES} · animais {trialAnimaisAtuais}/{TRIAL_MAX_ANIMAIS} · relatórios {trialR.reportsUsed}/{trialR.reportsMax}
+            </span>
+            <div style={{ opacity: 0.85, marginTop: 4 }}>
+              Após o 8º dia, R$ 97 (única cobrança) libera acesso <b>vitalício</b> e ilimitado.
+            </div>
+          </div>
+        )}
         <div className="form-grid">
           <div className="field">
             <label>Nome do lote</label>
