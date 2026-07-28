@@ -2,7 +2,6 @@ import * as React from 'react'
 
 import {
   Body,
-  Button,
   Container,
   Head,
   Heading,
@@ -20,9 +19,9 @@ export const RecoveryEmail = ({
   siteName,
   confirmationUrl,
 }: RecoveryEmailProps) => (
-  <Html lang="en" dir="ltr">
+  <Html lang="pt-BR" dir="ltr">
     <Head />
-    <Preview>Reset your password for {siteName}</Preview>
+    <Preview>Redefina sua senha de acesso ao {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
         <Heading style={h1}>Redefinir sua senha</Heading>
@@ -31,9 +30,17 @@ export const RecoveryEmail = ({
           <strong>{siteName}</strong>. Clique no botão abaixo para criar uma
           nova senha — o link é válido por tempo limitado.
         </Text>
-        <Button style={button} href={confirmationUrl}>
-          Redefinir senha
-        </Button>
+        <table role="presentation" cellPadding="0" cellSpacing="0" style={buttonTable}>
+          <tbody>
+            <tr>
+              <td style={buttonCell}>
+                <a href={confirmationUrl} target="_blank" rel="noreferrer" style={button}>
+                  Redefinir minha senha
+                </a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
         <Text style={text}>
           Se o botão não funcionar, copie e cole este endereço no navegador:
           <br />
@@ -68,12 +75,13 @@ const text = {
   lineHeight: '1.5',
   margin: '0 0 20px',
 }
+const buttonTable = { borderCollapse: 'separate' as const, margin: '0 0 24px' }
+const buttonCell = { backgroundColor: '#0f4d2a', borderRadius: '6px' }
 const button = {
-  backgroundColor: '#0f4d2a',
+  display: 'inline-block',
   color: '#ffffff',
   fontSize: '15px',
   fontWeight: 'bold' as const,
-  borderRadius: '8px',
   padding: '14px 24px',
   textDecoration: 'none',
 }
