@@ -1,0 +1,100 @@
+import { createServerFn } from "@tanstack/react-start";
+
+export type ArnaMemory = {
+  species?: string;
+  herdSize?: string;
+  avgWeight?: string;
+  objectives?: string;
+  ingredients?: string;
+  notes?: string;
+};
+
+export type ArnaChatMsg = { role: "user" | "assistant"; content: string };
+
+type ChatInput = {
+  messages: ArnaChatMsg[];
+  memory?: ArnaMemory;
+  pro?: boolean;
+};
+
+type ChatResult = { reply: string } | { error: string; code?: number };
+
+function memoryBlock(m?: ArnaMemory): string {
+  if (!m) return "Nenhuma memória salva sobre o usuário ainda.";
+  const rows: string[] = [];
+  if (m.species) rows.push(`- Espécie(s) do produtor: ${m.species}`);
+  if (m.herdSize) rows.push(`- Tamanho do plantel: ${m.herdSize}`);
+  if (m.avgWeight) rows.push(`- Peso médio / fase: ${m.avgWeight}`);
+  if (m.objectives) rows.push(`- Objetivos: ${m.objectives}`);
+  if (m.ingredients) rows.push(`- Ingredientes disponíveis: ${m.ingredients}`);
+  if (m.notes) rows.push(`- Notas: ${m.notes}`);
+  return rows.length ? rows.join("\n") : "Nenhuma memória salva sobre o usuário ainda.";
+}
+
+function systemPrompt(memory: ArnaMemory | undefined, pro: boolean): string {
+  return [
+    "Você é o ARNA AI, consultor virtual da Aguiar Nutrição Animal.",
+    "Você é especialista em nutrição animal, formulação de rações, exigências nutricionais (PB, EM, lisina, metionina, treonina, cálcio, fósforo, minerais, vitaminas), conversão alimentar, ganho de peso e bem-estar animal.",
+    "Atende suínos, aves, bovinos de corte e leite, ovinos, caprinos, equinos e peixes.",
+    "REGRAS OBRIGATÓRIAS:",
+    "1. Antes de formular uma ração, confirme: espécie, fase/idade, peso, objetivo produtivo e ingredientes disponíveis. Faça as perguntas que faltarem.",
+    "2. NUNCA sugira ingredientes incompatíveis com a espécie (ex.: calcário calcítico só quando tecnicamente recomendado — em suínos evite sugerir por padrão).",
+    "3. NUNCA invente dados nutricionais. Se não tiver certeza, diga.",
+    "4. Respeite limites mínimos e máximos das exigências nutricionais da categoria.",
+    "5. Justifique tecnicamente cada recomendação.",
+    "6. Responda sempre em português do Brasil, tom direto e prático para o produtor rural.",
+    pro ? "MODO ARNA AI PRO: atue como Zootecnista/Nutricionista sênior — pode formular rações completas, calcular custos, comparar ingredientes, sugerir substituições e emitir relatório técnico detalhado." : "Modo padrão: responda em linguagem acessível ao produtor, com passos práticos.",
+    "",
+    "MEMÓRIA DO USUÁRIO (use para personalizar as respostas; se algo faltar, pergunte):",
+    memoryBlock(memory),
+  ].join("\n");
+}
+
+export const arnaChat = createServerFn({ method: "POST" })
+  .inputValidator((data: ChatInput) => {
+    if (!Array.isArray(data?.messages) || data.messages.length === 0) {
+      throw new Error("messages requerido");
+    }
+    return data;
+  })
+  .handler(async ({ data }): Promise<ChatResult> => {
+    const key = process.env.LOVABLE_API_KEY;
+    if (!key) return { error: "LOVABLE_API_KEY não configurada." };
+
+    const body = {
+      model: "google/gemini-3.6-flash",
+      messages: [
+        { role: "system", content: systemPrompt(data.memory, !!data.pro) },
+        ...data.messages.map((m) => ({ role: m.role, content: m.content })),
+      ],
+    };
+
+    try {
+      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${key}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (res.status === 429) {
+        return { error: "Muitas requisições. Aguarde um instante e tente novamente.", code: 429 };
+      }
+      if (res.status === 402) {
+        return { error: "Créditos de IA esgotados na workspace. Recarregue em Configurações → Planos e créditos.", code: 402 };
+      }
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        return { error: `Falha na IA (${res.status}): ${txt.slice(0, 200)}` };
+      }
+
+      const json = await res.json();
+      const reply: string = json?.choices?.[0]?.message?.content ?? "";
+      if (!reply) return { error: "Resposta vazia da IA." };
+      return { reply };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : "Erro desconhecido." };
+    }
+  });
