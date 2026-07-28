@@ -916,6 +916,34 @@ function PlantelPanel({
                         Avançar para: {l.proximaFase.label}
                       </button>
                     )}
+                    <button
+                      className="btn ghost small"
+                      disabled={busy === `${l.lote.id}:pdf`}
+                      onClick={() => loteAction(l, "pdf")}
+                    >
+                      {busy === `${l.lote.id}:pdf` ? "Gerando…" : "PDF"}
+                    </button>
+                    <button
+                      className="btn ghost small"
+                      disabled={busy === `${l.lote.id}:xlsx`}
+                      onClick={() => loteAction(l, "xlsx")}
+                    >
+                      Excel
+                    </button>
+                    <button
+                      className="btn ghost small"
+                      disabled={busy === `${l.lote.id}:share`}
+                      onClick={() => loteAction(l, "share")}
+                    >
+                      Compartilhar
+                    </button>
+                    <button
+                      className="btn ghost small"
+                      disabled={busy === `${l.lote.id}:print`}
+                      onClick={() => loteAction(l, "print")}
+                    >
+                      Imprimir
+                    </button>
                   </div>
 
                   <details className="lote-vacinas">
@@ -966,6 +994,53 @@ function PlantelPanel({
                 >
                   {brl(tot.lucro)}
                 </div>
+              </div>
+            </div>
+
+            <div className="box" style={{ marginTop: 18, background: "var(--surface)" }}>
+              <h4>Relatórios profissionais</h4>
+              <div className="sub">
+                PDF e Excel com logo, dados do produtor, indicadores por lote, calendário de
+                vacinas, gráficos, QR Code e observações
+              </div>
+              <div className="field" style={{ marginBottom: 12 }}>
+                <label>Observações (opcional — entram no relatório)</label>
+                <input
+                  type="text"
+                  value={obs}
+                  onChange={(e) => setObs(e.target.value)}
+                  placeholder="Ex.: lote monitorado após reajuste da ração pré-inicial"
+                />
+              </div>
+              <div className="save-row" style={{ marginTop: 0 }}>
+                <button
+                  className="btn"
+                  disabled={busy === "plantel:pdf"}
+                  onClick={() => plantelAction("pdf")}
+                >
+                  {busy === "plantel:pdf" ? "Gerando PDF…" : "Exportar PDF do plantel"}
+                </button>
+                <button
+                  className="btn ghost"
+                  disabled={busy === "plantel:xlsx"}
+                  onClick={() => plantelAction("xlsx")}
+                >
+                  Exportar Excel
+                </button>
+                <button
+                  className="btn ghost"
+                  disabled={busy === "plantel:share"}
+                  onClick={() => plantelAction("share")}
+                >
+                  Compartilhar
+                </button>
+                <button
+                  className="btn ghost"
+                  disabled={busy === "plantel:print"}
+                  onClick={() => plantelAction("print")}
+                >
+                  Imprimir
+                </button>
               </div>
             </div>
           </>
