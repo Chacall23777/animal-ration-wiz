@@ -100,13 +100,39 @@ export const arnaChat = createServerFn({ method: "POST" })
     return data;
   })
   .handler(async ({ data, context }): Promise<ChatResult> => {
-    const { supabase, userId } = context;
+    const { userId } = context;
 
-    // Verificar assinatura ativa no servidor (não confiar na UI)
-    const { data: allowed, error: subErr } = await supabase.rpc("has_active_subscription", {
-      _user_id: userId,
-    });
-    if (subErr || !allowed) {
+    // Verificação de acesso (admin / vitalício / assinatura ativa) via service role,
+    // para não depender de RLS ou variações de SECURITY DEFINER.
+    const url = process.env.SUPABASE_URL;
+    const svc = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    let allowed = false;
+    if (url && svc) {
+      const { createClient } = await import("@supabase/supabase-js");
+      const admin = createClient(url, svc, { auth: { persistSession: false } });
+      const [{ data: roleRow }, { data: prof }, { data: sub }] = await Promise.all([
+        admin.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle(),
+        admin.from("profiles").select("lifetime_access").eq("id", userId).maybeSingle(),
+        admin
+          .from("subscriptions")
+          .select("status, current_period_end")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+      const isAdmin = !!roleRow;
+      const lifetime = !!(prof as { lifetime_access?: boolean } | null)?.lifetime_access;
+      const now = Date.now();
+      const end = sub?.current_period_end ? new Date(sub.current_period_end).getTime() : null;
+      const subActive =
+        !!sub &&
+        (["active", "trialing", "past_due"].includes(sub.status as string) ||
+          sub.status === "canceled") &&
+        (end === null || end > now);
+      allowed = isAdmin || lifetime || subActive;
+    }
+    if (!allowed) {
       return { error: "Assinatura ativa necessária para usar o ARNA AI.", code: 403 };
     }
 
