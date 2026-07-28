@@ -265,3 +265,81 @@ input,select,textarea,button{font-size:16px;}
 .profit-pos{color:var(--good,#2e5b3a);}
 .profit-neg{color:var(--bad,#a02020);}
 @media(max-width:640px){.lote-grid{grid-template-columns:1fr 1fr;}}
+
+/* ================== DARK MODE ================== */
+:root[data-theme="dark"]{
+  --bg:#0F1114; --surface:#171A20; --card:#1E222A;
+  --ink:#EDE7D6; --ink-soft:#9C9689;
+  --gold:#E0B056; --gold-deep:#D9A441;
+  --green:#6F9A5F; --rust:#C56B57; --stone:#4A4740;
+  --line: rgba(237,231,214,0.14);
+  --good:#6F9A5F; --bad:#C56B57;
+}
+:root[data-theme="dark"] .animal-card.active.sel-poultry{background:#2A2216;}
+:root[data-theme="dark"] .animal-card.active.sel-swine{background:#2A1A17;}
+:root[data-theme="dark"] .tab-btn.active{color:#0F1114;}
+:root[data-theme="dark"] .unit-toggle button.active,
+:root[data-theme="dark"] .phase-chip.active{color:#0F1114;}
+
+.theme-toggle{background:var(--surface);border:1.5px solid var(--line);border-radius:20px;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;line-height:1;color:var(--ink);}
+.theme-toggle:hover{border-color:var(--ink);}
+
+/* ================== DASHBOARD ================== */
+.hero-box{background:linear-gradient(135deg, color-mix(in oklab, var(--gold) 22%, var(--surface)), var(--surface));}
+.hero-flex{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap;}
+.hero-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink-soft);}
+.hero-title{font-family:'Bebas Neue',sans-serif;font-size:30px;margin:2px 0 6px;letter-spacing:0.5px;}
+.hero-cta{display:flex;gap:8px;flex-wrap:wrap;}
+.btn.ghost{background:transparent;color:var(--ink);border:2px solid var(--ink);}
+.btn.small{padding:8px 14px;font-size:13px;}
+
+.alerts-stack{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;}
+.alert{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);}
+.alert-icon{font-size:22px;line-height:1;}
+.alert-body{flex:1;min-width:0;}
+.alert-title{font-weight:700;font-size:14.5px;color:var(--ink);}
+.alert-detail{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
+.alert-info{border-left:5px solid var(--gold-deep);}
+.alert-warn{border-left:5px solid #E1A32B;background:color-mix(in oklab, #E1A32B 8%, var(--surface));}
+.alert-danger{border-left:5px solid var(--rust);background:color-mix(in oklab, var(--rust) 10%, var(--surface));}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;}
+@media (max-width:820px){.kpi-grid{grid-template-columns:repeat(2,1fr);}}
+.kpi-card{background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:14px 16px;}
+.kpi-card.kpi-primary{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+.kpi-card.kpi-primary .kpi-lbl,.kpi-card.kpi-primary .kpi-sub{color:color-mix(in oklab, var(--bg) 75%, transparent);}
+.kpi-lbl{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--ink-soft);}
+.kpi-val{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:0.5px;margin-top:4px;line-height:1;}
+.kpi-val .kpi-unit{font-size:16px;color:var(--ink-soft);margin-left:4px;}
+.kpi-sub{font-size:11.5px;color:var(--ink-soft);margin-top:6px;}
+.profit-pos{color:var(--good);}
+.profit-neg{color:var(--bad);}
+
+.buy-card{margin-top:14px;display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 16px;border-radius:10px;background:color-mix(in oklab, var(--gold) 12%, var(--surface));border:1.5px dashed var(--gold-deep);flex-wrap:wrap;}
+.buy-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold-deep);}
+.buy-title{font-size:14.5px;margin-top:2px;}
+.buy-sub{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
+
+.dash-lote-list{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+@media (max-width:720px){.dash-lote-list{grid-template-columns:1fr;}}
+.dash-lote{text-align:left;background:var(--surface);border:1.5px solid var(--line);border-left:6px solid var(--stone);border-radius:10px;padding:12px 14px;cursor:pointer;color:var(--ink);transition:transform .1s,border-color .15s;}
+.dash-lote:hover{transform:translateY(-1px);}
+.dash-lote.sel-poultry{border-left-color:var(--gold-deep);}
+.dash-lote.sel-swine{border-left-color:var(--rust);}
+.dash-lote-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.dash-lote-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 12px;font-size:12px;}
+.dash-lote-grid > div{display:flex;flex-direction:column;}
+.dash-lote-grid span{font-size:10.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:0.8px;}
+.dash-lote-grid b{font-size:14px;color:var(--ink);}
+.tag-pill{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:3px 8px;border-radius:10px;border:1px solid var(--line);text-transform:uppercase;letter-spacing:1px;}
+.tag-pill.poultry{color:var(--gold-deep);border-color:var(--gold-deep);}
+.tag-pill.swine{color:var(--rust);border-color:var(--rust);}
+
+.species-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;}
+@media (max-width:820px){.species-grid{grid-template-columns:repeat(3,1fr);}}
+@media (max-width:480px){.species-grid{grid-template-columns:repeat(2,1fr);}}
+.species-chip{border:1.5px solid var(--line);border-radius:12px;padding:12px 10px;background:var(--surface);text-align:center;}
+.species-chip.off{opacity:0.55;background:transparent;border-style:dashed;}
+.species-emoji{font-size:28px;line-height:1;}
+.species-name{font-family:'Bebas Neue',sans-serif;letter-spacing:0.5px;font-size:18px;margin-top:4px;}
+.species-sub{font-size:10.5px;color:var(--ink-soft);margin-top:2px;line-height:1.3;}
